@@ -16,7 +16,7 @@ volatile int16_t enc_delta = 0;  // accumulated steps
 ScrollBuffer buffer;
 int16_t scroll = 0;
 
-void IRAM_ATTR onEncChange() {
+void onEncChange() {
   // Read both pins and decode quadrature
   uint8_t a = digitalRead(PIN_ENC_A);
   uint8_t b = digitalRead(PIN_ENC_B);
