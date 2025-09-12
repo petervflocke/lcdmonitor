@@ -34,8 +34,10 @@ test: pytest
 ci: fmt-check lint type test arduino-build
 
 # End-to-end smoke: build Arduino and run mock sender locally
+# E2E: build Arduino and run mock sender. Override with: make e2e PORT=/dev/ttyACM0
+PORT ?= /dev/ttyUSB0
 e2e: arduino-build
-	cd server && $(PY) python src/mock_sender.py
+	cd server && $(PY) python src/mock_sender.py --port=$(PORT)
 
 # Docker compose placeholders (infra not yet present)
 up:

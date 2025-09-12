@@ -1,27 +1,60 @@
-import time
+from __future__ import annotations
+
+import argparse
 import sys
+import time
+
 import serial
 
-PORT = sys.argv[1] if len(sys.argv) > 1 else "/dev/ttyUSB0"
-BAUD = 115200
+from .protocol import Outbound
 
-if __name__ == "__main__":
-    ser = serial.Serial(PORT, BAUD, timeout=1)
-    i = 0
+
+def parse_args(argv: list[str]) -> argparse.Namespace:
+    p = argparse.ArgumentParser(description="Mock serial sender to Arduino LCD")
+    p.add_argument("--port", default="/dev/ttyUSB0", help="Serial port (default: /dev/ttyUSB0)")
+    p.add_argument("--baud", type=int, default=115200, help="Baud rate (default: 115200)")
+    p.add_argument(
+        "--interval",
+        type=float,
+        default=5.0,
+        help="Seconds between updates (default: 5)",
+    )
+    p.add_argument("--lines", type=int, default=4, help="Lines per update (default: 4)")
+    return p.parse_args(argv)
+
+
+def main(argv: list[str]) -> int:
+    args = parse_args(argv)
+    try:
+        ser = serial.Serial(args.port, args.baud, timeout=1)
+    except Exception as e:  # pragma: no cover - hardware dependent
+        print(f"Failed to open serial port {args.port}: {e}", file=sys.stderr)
+        return 2
+
+    counter = 0
     try:
         while True:
-            lines = [
-                f"Mock status #{i}",
-                "CPU temp: 42C",
-                "GPU load: 12%",
-                time.strftime("%H:%M:%S"),
-            ]
-            # Truncate to 20 chars and join with newline, end with blank line
-            norm = [(s[:20] if len(s) > 20 else s) for s in lines]
-            payload = ("\n".join(norm) + "\n\n").encode()
+            now = time.strftime("%H:%M:%S")
+            lines: list[str] = [
+                f"Status {counter:06d}",
+                f"Time {now}",
+                "CPU 25% 42C",
+                "GPU 12% 512MB 45C",
+            ][: args.lines]
+
+            payload = Outbound(lines=lines).encode()
             ser.write(payload)
             ser.flush()
-            i += 1
-            time.sleep(5)
+            counter += 1
+            time.sleep(args.interval)
+    except KeyboardInterrupt:  # pragma: no cover - manual stop
+        return 0
     finally:
-        ser.close()
+        try:
+            ser.close()
+        except Exception:
+            pass
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))
