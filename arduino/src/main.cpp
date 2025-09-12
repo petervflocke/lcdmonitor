@@ -18,6 +18,54 @@ void encoderISR() {
     RotaryEncoder::handleInterrupt();
 }
 
+// --- Serial frame parsing ---
+static char inLine[ScrollBuffer::kWidth + 1];
+static uint8_t inIdx = 0;
+static char frameLines[ScrollBuffer::kCapacity][ScrollBuffer::kWidth + 1];
+static uint8_t frameCount = 0;
+
+static void commitFrameIfAny() {
+  if (frameCount == 0) return;
+  buffer.clear();
+  for (uint8_t i = 0; i < frameCount; ++i) {
+    buffer.push(frameLines[i]);
+  }
+  scroll = 0;
+  frameCount = 0;
+}
+
+static void render();
+
+static void processSerial() {
+  while (Serial.available() > 0) {
+    char c = static_cast<char>(Serial.read());
+    if (c == '\r') {
+      continue;  // ignore CR
+    }
+    if (c == '\n') {
+      // If we see a blank line, it's end-of-frame
+      if (inIdx == 0) {
+        commitFrameIfAny();
+        // Show new frame immediately
+        render();
+      } else {
+        // Terminate current line and add to frame
+        inLine[inIdx] = '\0';
+        if (frameCount < ScrollBuffer::kCapacity) {
+          strncpy(frameLines[frameCount], inLine, ScrollBuffer::kWidth + 1);
+          frameLines[frameCount][ScrollBuffer::kWidth] = '\0';
+          ++frameCount;
+        }
+        inIdx = 0;
+      }
+    } else {
+      if (inIdx < ScrollBuffer::kWidth) {
+        inLine[inIdx++] = c;
+      }
+    }
+  }
+}
+
 static void render() {
   lcd.clear();
   char line[ScrollBuffer::kWidth + 1];
@@ -50,19 +98,17 @@ void setup() {
     lcd.begin(20, 4);
     lcd.clear();
 
-    // Seed buffer with demo lines
+    // Initial message shown until first frame arrives
     buffer.clear();
-    buffer.push("Hello World");
-    for (uint8_t i = 0; i < 20; ++i) {
-        char msg[21];
-        snprintf(msg, sizeof(msg), "Item %02u - scroll", i);
-        buffer.push(msg);
-    }
+    buffer.push("Waiting for data...");
     render();
     Serial.println("Starting up");
 }
 
 void loop() {
+    // Read and process incoming serial frames
+    processSerial();
+    
     int16_t movement = RotaryEncoder::getMovement();
     
     if (movement != 0) {
