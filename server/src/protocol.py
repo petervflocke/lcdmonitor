@@ -1,10 +1,9 @@
 from dataclasses import dataclass
 
-START = b""  # optional if you later want binary framing
-END = b""    # not used in line mode yet
+START = b"\x02"  # optional if you later want binary framing
+END = b"\x03"  # not used in line mode yet
 
-# For simplicity we start with line mode: join lines with 
- and end with 
+# Start with simple line mode: join lines with "\n" and end with an extra blank line
 
 
 @dataclass
@@ -14,7 +13,5 @@ class Outbound:
     def encode(self) -> bytes:
         # Truncate to 20 chars per LCD line
         norm = [(s[:20] if len(s) > 20 else s) for s in self.lines]
-        return ("
-".join(norm) + "
+        return ("\n".join(norm) + "\n\n").encode()
 
-").encode()
