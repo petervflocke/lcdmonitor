@@ -5,6 +5,7 @@ description = "Mock serial sender to Arduino"
 requires-python = ">=3.12"
 dependencies = [
   "pyserial>=3.5",
+  "psutil>=5.9",
 ]
 
 [tool.ruff]
@@ -20,3 +21,14 @@ addopts = "-q"
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
+
+# Dev tools via extras for uv: `uv sync --extra dev`
+[project.optional-dependencies]
+dev = [
+  "ruff>=0.5",
+  "black>=24.3",
+  "mypy>=1.10",
+  "pytest>=8.0",
+  "pip-audit>=2.7",
+  "types-psutil>=5.9",
+]

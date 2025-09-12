@@ -1,0 +1,22 @@
+name: Python CI
+on: [push, pull_request]
+jobs:
+  lint-type-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
+      - name: Install deps (runtime + dev)
+        run: |
+          cd server
+          uv sync --extra dev
+      - name: Lint, type-check, test
+        run: |
+          make fmt-check
+          make lint
+          make type
+          make test
