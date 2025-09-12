@@ -3,7 +3,7 @@ PY=uv run
 PIO=pio
 
 .PHONY: setup fmt fmt-check lint type pytest test ci e2e up down audit \
-        arduino-build arduino-upload arduino-monitor arduino-clean
+        arduino-build arduino-upload arduino-monitor arduino-clean arduino-test
 
 # Install Python deps (runtime + dev) with uv
 setup:
@@ -58,3 +58,6 @@ arduino-monitor:
 
 arduino-clean:
 	cd arduino && $(PIO) run -t clean
+
+arduino-test:
+	cd arduino && $(PIO) test
