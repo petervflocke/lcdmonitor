@@ -1,0 +1,22 @@
+[project]
+name = "server"
+version = "0.1.0"
+description = "Mock serial sender to Arduino"
+requires-python = ">=3.12"
+dependencies = [
+  "pyserial>=3.5",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+
+[tool.pytest.ini_options]
+addopts = "-q"
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"

@@ -1,0 +1,9 @@
+sensors:
+  cpu_temp: true
+  gpu:
+    enabled: true
+    metrics: ["load", "temp", "memory"]
+interval_seconds: 5
+commands:
+  1: "sudo shutdown -h now"
+  2: "systemctl restart myservice"
