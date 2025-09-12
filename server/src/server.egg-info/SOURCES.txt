@@ -1,0 +1,11 @@
+pyproject.toml
+src/__init__.py
+src/main.py
+src/metrics.py
+src/mock_sender.py
+src/protocol.py
+src/server.egg-info/PKG-INFO
+src/server.egg-info/SOURCES.txt
+src/server.egg-info/dependency_links.txt
+src/server.egg-info/requires.txt
+src/server.egg-info/top_level.txt

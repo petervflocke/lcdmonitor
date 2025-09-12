@@ -31,4 +31,5 @@ dev = [
   "pytest>=8.0",
   "pip-audit>=2.7",
   "types-psutil>=5.9",
+  "types-pyserial>=3.5",
 ]

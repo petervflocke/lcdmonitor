@@ -14,4 +14,3 @@ class Outbound:
         # Truncate to 20 chars per LCD line
         norm = [(s[:20] if len(s) > 20 else s) for s in self.lines]
         return ("\n".join(norm) + "\n\n").encode()
-

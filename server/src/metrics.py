@@ -4,6 +4,7 @@ from typing import Optional
 
 try:
     import pynvml  # type: ignore
+
     _HAS_NVML = True
 except Exception:
     _HAS_NVML = False
@@ -30,7 +31,7 @@ def gpu_summary() -> Optional[str]:
         util = pynvml.nvmlDeviceGetUtilizationRates(h)
         mem = pynvml.nvmlDeviceGetMemoryInfo(h)
         temp = pynvml.nvmlDeviceGetTemperature(h, pynvml.NVML_TEMPERATURE_GPU)
-        return f"GPU {util.gpu}% {mem.used//(1024**2)}MB {temp}C"
+        return f"GPU {util.gpu}% {mem.used // (1024**2)}MB {temp}C"
     except Exception:
         return None
     finally:
