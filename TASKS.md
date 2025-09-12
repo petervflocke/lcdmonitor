@@ -10,11 +10,13 @@
 
 - [x] Implement minimal Arduino sketch that prints “Hello World” on LCD.
 - [x] Document wiring in `/docs/wiring.md` (Nano pins to LCD pins).
-- [ ] Commit schematic and pin mapping.
+- [x] Commit schematic and pin mapping (pin table documented in wiring.md).
 
 ### Phase 2: Arduino Input Handling
 
--
+- [x] Add rotary encoder support (rotation + button pin setup).
+- [x] Implement memory buffer in Arduino code for scrollable LCD lines.
+- [x] Unit test buffer logic with PlatformIO tests.
 
 ### Phase 3: Server Mockup
 
