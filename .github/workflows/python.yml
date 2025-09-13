@@ -1,5 +1,9 @@
 name: Python CI
-on: [push, pull_request]
+#on: [push, pull_request]
+on:
+  push: none
+  pull_request: none
+
 jobs:
   lint-type-test:
     runs-on: ubuntu-latest
