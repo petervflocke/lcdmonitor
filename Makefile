@@ -2,12 +2,20 @@
 PY=uv run
 PIO=pio
 
-.PHONY: setup fmt fmt-check lint type pytest test ci e2e up down audit \
-        arduino-build arduino-upload arduino-monitor arduino-clean arduino-test
+.PHONY: setup setup-pip fmt fmt-check lint type pytest test ci e2e up down audit \
+        arduino-build arduino-upload arduino-monitor arduino-clean arduino-test \
+        server-run server-dry-run server-run-pip server-dry-run-pip
 
 # Install Python deps (runtime + dev) with uv
 setup:
 	cd server && uv sync --extra dev
+
+# Fallback: setup using pip venv without uv
+setup-pip:
+	python3 -m venv server/.venv
+	server/.venv/bin/pip install --upgrade pip
+	server/.venv/bin/pip install pyserial psutil PyYAML
+	@echo "Optional GPU support: server/.venv/bin/pip install pynvml (if available)"
 
 # Format code (writes changes)
 fmt:
@@ -71,3 +79,10 @@ server-run:
 
 server-dry-run:
 	cd server && $(PY) python -m src.main --dry-run --once --config config.example.yaml
+
+# Run via pip venv created by setup-pip
+server-run-pip:
+	cd server && .venv/bin/python -m src.main --config config.example.yaml
+
+server-dry-run-pip:
+	cd server && .venv/bin/python -m src.main --dry-run --once --config config.example.yaml

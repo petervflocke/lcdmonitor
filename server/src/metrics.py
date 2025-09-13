@@ -1,13 +1,7 @@
 from __future__ import annotations
+import warnings
 import psutil
 from typing import Optional
-
-try:
-    import pynvml  # type: ignore
-
-    _HAS_NVML = True
-except Exception:
-    _HAS_NVML = False
 
 
 def cpu_summary() -> str:
@@ -22,20 +16,38 @@ def cpu_summary() -> str:
     return f"CPU {cpu:.0f}% {mem:.0f}% {'' if temp is None else f'{temp:.0f}C'}"
 
 
+def _load_nvml():
+    """Return NVML module (imported as 'pynvml') or None.
+
+    Prefer the 'nvidia-ml-py' distribution which exposes the 'pynvml' module
+    without deprecation warnings. If the legacy 'pynvml' package is installed,
+    suppress its FutureWarning.
+    """
+    try:
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=FutureWarning, module=r"^pynvml$")
+            import pynvml  # type: ignore
+
+        return pynvml
+    except Exception:
+        return None
+
+
 def gpu_summary() -> Optional[str]:
-    if not _HAS_NVML:
+    nvml = _load_nvml()
+    if nvml is None:
         return None
     try:
-        pynvml.nvmlInit()
-        h = pynvml.nvmlDeviceGetHandleByIndex(0)
-        util = pynvml.nvmlDeviceGetUtilizationRates(h)
-        mem = pynvml.nvmlDeviceGetMemoryInfo(h)
-        temp = pynvml.nvmlDeviceGetTemperature(h, pynvml.NVML_TEMPERATURE_GPU)
+        nvml.nvmlInit()
+        h = nvml.nvmlDeviceGetHandleByIndex(0)
+        util = nvml.nvmlDeviceGetUtilizationRates(h)
+        mem = nvml.nvmlDeviceGetMemoryInfo(h)
+        temp = nvml.nvmlDeviceGetTemperature(h, nvml.NVML_TEMPERATURE_GPU)
         return f"GPU {util.gpu}% {mem.used // (1024**2)}MB {temp}C"
     except Exception:
         return None
     finally:
         try:
-            pynvml.nvmlShutdown()
+            nvml.nvmlShutdown()
         except Exception:
             pass
