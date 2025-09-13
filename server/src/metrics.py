@@ -49,7 +49,14 @@ def gpu_summary() -> Optional[str]:
         util = nvml.nvmlDeviceGetUtilizationRates(h)
         mem = nvml.nvmlDeviceGetMemoryInfo(h)
         temp = nvml.nvmlDeviceGetTemperature(h, nvml.NVML_TEMPERATURE_GPU)
-        return f"GPU {util.gpu}% {mem.used // (1024**2)}MB {temp}C"
+        mem_pct = 0
+        try:
+            if getattr(mem, "total", 0):
+                mem_pct = int(round((mem.used / mem.total) * 100))
+        except Exception:
+            mem_pct = 0
+        # Show mem utilization in percent instead of MB
+        return f"GPU {util.gpu}% {mem_pct}% {temp}C"
     except Exception:
         return None
     finally:
