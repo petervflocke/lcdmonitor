@@ -12,6 +12,19 @@ sensors:
   - name: GPU0
     provider: gpu
     enabled: true
+  # Optional: specific temperature sensors via lm-sensors/psutil
+  - name: Pkg
+    provider: temp
+    enabled: true
+    params:
+      chip: coretemp
+      label: "Package id 0"
+  - name: NVMe
+    provider: temp
+    enabled: true
+    params:
+      chip: nvme
+      label: Composite
 
 # Commands reserved for Phase 6
 #commands:
