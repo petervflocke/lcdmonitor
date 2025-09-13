@@ -9,6 +9,8 @@ import serial
 
 from .protocol import Outbound
 
+MAX_LINES = 12
+
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Mock serial sender to Arduino LCD")
@@ -20,7 +22,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         default=5.0,
         help="Seconds between updates (default: 5)",
     )
-    p.add_argument("--lines", type=int, default=10, help="Lines per update (default: 10)")
+    p.add_argument(
+        "--lines",
+        type=int,
+        default=10,
+        help="Lines per update (default: 10, max: 12)",
+    )
     p.add_argument(
         "--no-echo",
         action="store_true",
@@ -67,7 +74,8 @@ def main(argv: list[str]) -> int:
                 "CPU 25% 42C",
                 "GPU 12% 512MB 45C",
             ]
-            for i in range(4, args.lines):
+            target = min(args.lines, MAX_LINES)
+            for i in range(4, target):
                 lines.append(f"Item {i:02d} #{counter:06d}")
 
             payload = Outbound(lines=lines).encode()

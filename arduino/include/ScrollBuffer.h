@@ -5,7 +5,7 @@
 class ScrollBuffer {
  public:
   static constexpr size_t kWidth = 20;
-  static constexpr size_t kCapacity = 32;  // number of lines stored
+  static constexpr size_t kCapacity = 12;  // number of lines stored (limit)
 
   ScrollBuffer() { clear(); }
 
@@ -51,4 +51,3 @@ class ScrollBuffer {
   size_t _count = 0;  // number of valid lines
   size_t _head = 0;   // next insert position
 };
-
