@@ -1,0 +1,51 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.bak
+*.tmp
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.env
+.venv
+venv/
+uv.lock
+
+# PlatformIO (Arduino)
+.pio/
+.pioenvs/
+.pioenvs_legacy/
+.pio_build/
+.pio_test/
+.pio/libdeps/
+
+# Logs / misc
+*.log
+*.out
+*.err
+
+# Coverage / reports
+.coverage
+htmlcov/
+dist/
+build/
+site/
+
+# CI artifacts
+coverage.xml
+test-results.xml
+junit.xml
