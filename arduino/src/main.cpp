@@ -13,6 +13,7 @@ constexpr uint8_t PIN_BTN = 4;    // D4
 
 ScrollBuffer buffer;
 int16_t scroll = 0;
+uint8_t btnPrev = HIGH;
 
 void encoderISR() {
     RotaryEncoder::handleInterrupt();
@@ -26,11 +27,20 @@ static uint8_t frameCount = 0;
 
 static void commitFrameIfAny() {
   if (frameCount == 0) return;
+  // Preserve current scroll position across frame updates
+  int16_t prevScroll = scroll;
   buffer.clear();
   for (uint8_t i = 0; i < frameCount; ++i) {
     buffer.push(frameLines[i]);
   }
-  scroll = 0;
+  // Clamp previous scroll to new buffer size (4 visible rows)
+  int16_t maxScroll = 0;
+  if (buffer.size() > 4) {
+    maxScroll = static_cast<int16_t>(buffer.size() - 4);
+  }
+  if (prevScroll < 0) prevScroll = 0;
+  if (prevScroll > maxScroll) prevScroll = maxScroll;
+  scroll = prevScroll;
   frameCount = 0;
 }
 
@@ -112,7 +122,7 @@ void loop() {
     int16_t movement = RotaryEncoder::getMovement();
     
     if (movement != 0) {
-        // Serial.println(movement > 0 ? "+1" : "-1"); // Debug position
+        Serial.println(movement > 0 ? "+1" : "-1"); // Debug position
 
         int16_t maxScroll = 0;
         if (buffer.size() > 4) {
@@ -123,6 +133,15 @@ void loop() {
         if (scroll > maxScroll) scroll = maxScroll;
         render();
     }
+
+    // Button handling: on press, reset scroll to top and notify host
+    uint8_t btn = digitalRead(PIN_BTN);
+    if (btnPrev == HIGH && btn == LOW) {  // falling edge (pressed)
+        scroll = 0;
+        render();
+        Serial.println("reset");
+    }
+    btnPrev = btn;
 
     delay(5);
 }
