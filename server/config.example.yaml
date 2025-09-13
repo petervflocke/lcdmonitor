@@ -12,19 +12,52 @@ sensors:
   - name: GPU
     provider: gpu
     enabled: true
-  # Optional: specific temperature sensors via lm-sensors/psutil
-  - name: Pkg
-    provider: temp
+  # Join Pkg (CPU package) and motherboard ACPI temp on one line
+  - name: Temps
+    provider: join
     enabled: true
-    params:
-      chip: coretemp
-      label: "Package id 0"
+    join:
+      - name: Pkg
+        provider: temp
+        params:
+          chip: coretemp
+          label: "Package id 0"
+      - name: MB
+        provider: temp
+        params:
+          chip: acpitz
+          label: temp1
+
+  # Join NVMe Sensor 1 and Sensor 2 on one line
   - name: NVMe
-    provider: temp
+    provider: join
     enabled: true
-    params:
-      chip: nvme
-      label: Composite
+    join:
+      - name: "1:"
+        provider: temp
+        params:
+          chip: nvme
+          label: "Sensor 1"
+      - name: "2:"
+        provider: temp
+        params:
+          chip: nvme
+          label: "Sensor 2"
+  # Join example: combine temps on one line
+  # - name: Temps
+  #   provider: join
+  #   enabled: true
+  #   join:
+  #     - name: Pkg
+  #       provider: temp
+  #       params:
+  #         chip: coretemp
+  #         label: "Package id 0"
+  #     - name: NVMe
+  #       provider: temp
+  #       params:
+  #         chip: nvme
+  #         label: Composite
 
 # Commands reserved for Phase 6
 #commands:

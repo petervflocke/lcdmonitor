@@ -8,7 +8,7 @@ from typing import List, Optional
 
 import serial
 
-from .config import AppConfig, load_config
+from .config import AppConfig, SensorConfig, load_config
 from .metrics import cpu_summary, gpu_summary, temp_summary
 from .protocol import Outbound
 
@@ -40,27 +40,46 @@ def _reader(ser: serial.Serial, stop: threading.Event) -> None:  # pragma: no co
             break
 
 
+def _sensor_text(s: SensorConfig) -> Optional[str]:
+    if not s.enabled:
+        return None
+    if s.provider == "cpu":
+        return cpu_summary()
+    if s.provider == "gpu":
+        return gpu_summary()
+    if s.provider == "temp":
+        chip = str(s.params.get("chip")) if s.params.get("chip") is not None else None
+        label = str(s.params.get("label")) if s.params.get("label") is not None else None
+        return temp_summary(chip=chip, label=label)
+    return None
+
+
 def _collect_lines(cfg: AppConfig) -> List[str]:
     lines: List[str] = []
     for s in cfg.sensors:
         if not s.enabled:
             continue
-        text: Optional[str] = None
-        if s.provider == "cpu":
-            text = cpu_summary()
-        elif s.provider == "gpu":
-            text = gpu_summary()
-        elif s.provider == "temp":
-            chip = str(s.params.get("chip")) if s.params.get("chip") is not None else None
-            label = str(s.params.get("label")) if s.params.get("label") is not None else None
-            text = temp_summary(chip=chip, label=label)
+        # Join mode: combine child sensors into one line
+        if s.provider == "join" or s.join:
+            parts: list[str] = []
+            for child in s.join:
+                t = _sensor_text(child)
+                if t is None:
+                    continue
+                part = t
+                if child.name:
+                    part = f"{child.name} {part}"
+                parts.append(part)
+            if not parts:
+                continue
+            text = " ".join(parts)
+            if s.name:
+                text = f"{s.name} {text}"
         else:
-            # Unknown provider -> skip
-            continue
-        if text is None:
-            continue
-        # Prefix each metric with sensor name (metrics text excludes label)
-        text = f"{s.name} {text}"
+            text = _sensor_text(s)
+            if text is None:
+                continue
+            text = f"{s.name} {text}"
         # Truncate to LCD width here already
         lines.append(text[:20])
         if len(lines) >= cfg.max_lines:

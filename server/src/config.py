@@ -20,6 +20,7 @@ class SensorConfig:
     enabled: bool = True
     format: str | None = None  # reserved for future use
     params: dict[str, Any] = field(default_factory=dict)
+    join: list["SensorConfig"] = field(default_factory=list)
 
 
 @dataclass
@@ -70,7 +71,13 @@ def load_config(path: str | Path) -> AppConfig:
         if not isinstance(item, dict):
             continue
         name = str(item.get("name", ""))
-        provider = str(item.get("provider", ""))
+        # If this is a join block, provider can be omitted; set to 'join'
+        provider_raw = item.get("provider")
+        join_raw = item.get("join")
+        if join_raw is not None and provider_raw is None:
+            provider = "join"
+        else:
+            provider = str(provider_raw or "")
         if not name or not provider:
             continue
         enabled = bool(item.get("enabled", True))
@@ -80,7 +87,41 @@ def load_config(path: str | Path) -> AppConfig:
         params = item.get("params") or {}
         if not isinstance(params, dict):
             params = {}
-        sensors.append(SensorConfig(name=name, provider=provider, enabled=enabled, format=fmt, params=params))
+        join_list: list[SensorConfig] = []
+        if isinstance(join_raw, list):
+            for sub in join_raw:
+                if not isinstance(sub, dict):
+                    continue
+                sub_name = str(sub.get("name", ""))
+                sub_provider = str(sub.get("provider", ""))
+                if not sub_provider:
+                    continue
+                sub_enabled = bool(sub.get("enabled", True))
+                sub_fmt = sub.get("format")
+                if sub_fmt is not None:
+                    sub_fmt = str(sub_fmt)
+                sub_params = sub.get("params") or {}
+                if not isinstance(sub_params, dict):
+                    sub_params = {}
+                join_list.append(
+                    SensorConfig(
+                        name=sub_name,
+                        provider=sub_provider,
+                        enabled=sub_enabled,
+                        format=sub_fmt,  # type: ignore[arg-type]
+                        params=sub_params,
+                    )
+                )
+
+        sensors.append(
+            SensorConfig(
+                name=name,
+                provider=provider,
+                enabled=enabled,
+                format=fmt,
+                params=params,
+                join=join_list,
+            )
+        )
 
     return AppConfig(interval=interval, serial=serial, max_lines=max_lines, sensors=sensors)
-
