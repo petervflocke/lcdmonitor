@@ -9,7 +9,7 @@ sensors:
   - name: CPU
     provider: cpu
     enabled: true
-  - name: GPU0
+  - name: GPU
     provider: gpu
     enabled: true
   # Optional: specific temperature sensors via lm-sensors/psutil
