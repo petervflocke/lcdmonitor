@@ -1,7 +1,7 @@
 from __future__ import annotations
 import warnings
 import psutil
-from typing import Optional, Iterable
+from typing import Optional, Iterable, Any
 
 
 def _pad3(n: int) -> str:
@@ -68,9 +68,16 @@ def gpu_summary() -> Optional[str]:
             mem_pct = 0
         # Show mem utilization in percent instead of MB, width 3
         return f"{_pad3(int(util.gpu))}% {_pad3(mem_pct)}% {_pad3(int(temp))}C"
+    except Exception:
+        return None
+    finally:
+        try:
+            nvml.nvmlShutdown()
+        except Exception:
+            pass
 
 
-def _pick_temp_entry(arr: Iterable[psutil._common.shwtemp]) -> Optional[int]:  # type: ignore[attr-defined]
+def _pick_temp_entry(arr: Iterable[Any]) -> Optional[int]:
     for entry in arr:
         try:
             return int(round(entry.current))
@@ -101,10 +108,3 @@ def temp_summary(chip: Optional[str] = None, label: Optional[str] = None) -> Opt
         if val is not None:
             return f"{_pad3(val)}C"
     return None
-    except Exception:
-        return None
-    finally:
-        try:
-            nvml.nvmlShutdown()
-        except Exception:
-            pass
