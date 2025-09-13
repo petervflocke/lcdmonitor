@@ -13,7 +13,7 @@ def cpu_summary() -> str:
             break
     mem = psutil.virtual_memory().percent
     cpu = psutil.cpu_percent(interval=None)
-    return f"CPU {cpu:.0f}% {mem:.0f}% {'' if temp is None else f'{temp:.0f}C'}"
+    return f"{cpu:.0f}% {mem:.0f}% {'' if temp is None else f'{temp:.0f}C'}"
 
 
 def _load_nvml():
@@ -56,7 +56,7 @@ def gpu_summary() -> Optional[str]:
         except Exception:
             mem_pct = 0
         # Show mem utilization in percent instead of MB
-        return f"GPU {util.gpu}% {mem_pct}% {temp}C"
+        return f"{util.gpu}% {mem_pct}% {temp}C"
     except Exception:
         return None
     finally:

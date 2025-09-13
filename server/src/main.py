@@ -35,9 +35,8 @@ def _collect_lines(cfg: AppConfig) -> List[str]:
             continue
         if text is None:
             continue
-        # Ensure each line prefixed with name if not already
-        if not text.startswith(s.name):
-            text = f"{s.name} {text}"
+        # Prefix each metric with sensor name (metrics text excludes label)
+        text = f"{s.name} {text}"
         # Truncate to LCD width here already
         lines.append(text[:20])
         if len(lines) >= cfg.max_lines:
