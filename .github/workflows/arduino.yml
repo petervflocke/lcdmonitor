@@ -1,8 +1,6 @@
 name: Arduino Build
-#on: [push, pull_request]
 on:
-  push: none
-  pull_request: none
+  workflow_dispatch:
 jobs:
   build:
     runs-on: ubuntu-latest
