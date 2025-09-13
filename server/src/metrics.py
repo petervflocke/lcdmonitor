@@ -25,7 +25,13 @@ def _load_nvml():
     """
     try:
         with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=FutureWarning, module=r"^pynvml$")
+            # Some distros ship legacy 'pynvml' with a FutureWarning on import.
+            # Silence only that specific message to avoid noisy logs.
+            warnings.filterwarnings(
+                "ignore",
+                category=FutureWarning,
+                message=r"^The pynvml package is deprecated.*",
+            )
             import pynvml  # type: ignore
 
         return pynvml
