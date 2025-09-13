@@ -15,6 +15,11 @@ ScrollBuffer buffer;
 int16_t scroll = 0;
 uint8_t btnPrev = HIGH;
 
+// --- Frame watchdog ---
+static const unsigned long FRAME_TIMEOUT_MS = 10000;  // 10s without a new frame -> waiting
+static unsigned long lastFrameMs = 0;
+static bool haveData = false;
+
 void encoderISR() {
     RotaryEncoder::handleInterrupt();
 }
@@ -42,6 +47,10 @@ static void commitFrameIfAny() {
   if (prevScroll > maxScroll) prevScroll = maxScroll;
   scroll = prevScroll;
   frameCount = 0;
+
+  // Update watchdog on completed frame
+  haveData = true;
+  lastFrameMs = millis();
 }
 
 static void render();
@@ -113,6 +122,10 @@ void setup() {
     buffer.push("Waiting for data...");
     render();
     Serial.println("Starting up");
+
+    // Initialize watchdog state
+    haveData = false;
+    lastFrameMs = millis();
 }
 
 void loop() {
@@ -131,6 +144,16 @@ void loop() {
         scroll += movement;
         if (scroll < 0) scroll = 0;
         if (scroll > maxScroll) scroll = maxScroll;
+        render();
+    }
+
+    // Watchdog: if no complete frame arrived within timeout, go back to waiting
+    unsigned long now = millis();
+    if (haveData && (now - lastFrameMs) > FRAME_TIMEOUT_MS) {
+        haveData = false;
+        scroll = 0;
+        buffer.clear();
+        buffer.push("Waiting for data...");
         render();
     }
 
