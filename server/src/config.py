@@ -31,6 +31,9 @@ class AppConfig:
     sensors: List[SensorConfig] = field(default_factory=list)
 
 
+_ALLOWED_PROVIDERS = {"cpu", "gpu", "temp", "join"}
+
+
 def _as_int(val: Any, default: int) -> int:
     try:
         return int(val)
@@ -125,3 +128,32 @@ def load_config(path: str | Path) -> AppConfig:
         )
 
     return AppConfig(interval=interval, serial=serial, max_lines=max_lines, sensors=sensors)
+
+
+def validate_config(cfg: AppConfig) -> None:
+    if cfg.interval <= 0:
+        raise ValueError("interval must be > 0")
+    if cfg.max_lines <= 0 or cfg.max_lines > 12:
+        raise ValueError("max_lines must be between 1 and 12")
+    if not cfg.serial.port:
+        raise ValueError("serial.port must be a non-empty string")
+    if cfg.serial.baud <= 0:
+        raise ValueError("serial.baud must be > 0")
+
+    for i, s in enumerate(cfg.sensors):
+        if s.provider not in _ALLOWED_PROVIDERS:
+            raise ValueError(f"sensors[{i}] '{s.name}': unknown provider '{s.provider}'")
+        if s.provider == "join":
+            if not s.join:
+                raise ValueError(f"sensors[{i}] '{s.name}': join must contain at least one child")
+            for j, c in enumerate(s.join):
+                if c.provider not in {"cpu", "gpu", "temp"}:
+                    raise ValueError(
+                        f"sensors[{i}].join[{j}] '{c.name}': invalid provider '{c.provider}'"
+                    )
+
+
+def load_and_validate_config(path: str | Path) -> AppConfig:
+    cfg = load_config(path)
+    validate_config(cfg)
+    return cfg

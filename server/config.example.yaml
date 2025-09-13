@@ -13,7 +13,7 @@ sensors:
     provider: gpu
     enabled: true
   # Join Pkg (CPU package) and motherboard ACPI temp on one line
-  - name: Temps
+  - name: T
     provider: join
     enabled: true
     join:
@@ -43,21 +43,6 @@ sensors:
         params:
           chip: nvme
           label: "Sensor 2"
-  # Join example: combine temps on one line
-  # - name: Temps
-  #   provider: join
-  #   enabled: true
-  #   join:
-  #     - name: Pkg
-  #       provider: temp
-  #       params:
-  #         chip: coretemp
-  #         label: "Package id 0"
-  #     - name: NVMe
-  #       provider: temp
-  #       params:
-  #         chip: nvme
-  #         label: Composite
 
 # Commands reserved for Phase 6
 #commands:

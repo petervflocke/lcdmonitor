@@ -8,7 +8,7 @@ from typing import List, Optional
 
 import serial
 
-from .config import AppConfig, SensorConfig, load_config
+from .config import AppConfig, SensorConfig, load_and_validate_config
 from .metrics import cpu_summary, gpu_summary, temp_summary
 from .protocol import Outbound
 
@@ -90,7 +90,7 @@ def _collect_lines(cfg: AppConfig) -> List[str]:
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
     try:
-        cfg = load_config(args.config)
+        cfg = load_and_validate_config(args.config)
     except Exception as e:
         print(f"Failed to load config: {e}", file=sys.stderr)
         return 2
