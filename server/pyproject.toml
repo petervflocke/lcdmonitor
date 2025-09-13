@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
   "pyserial>=3.5",
   "psutil>=5.9",
+  "PyYAML>=6.0",
 ]
 
 [tool.ruff]
@@ -35,4 +36,5 @@ dev = [
   "pip-audit>=2.7",
   "types-psutil>=5.9",
   "types-pyserial>=3.5",
+  "types-PyYAML>=6.0",
 ]

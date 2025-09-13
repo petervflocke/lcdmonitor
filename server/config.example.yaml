@@ -1,9 +1,20 @@
+interval: 5.0
+serial:
+  port: /dev/ttyUSB0
+  baud: 115200
+max_lines: 12
+
+# Order matters; first entries appear first on LCD
 sensors:
-  cpu_temp: true
-  gpu:
+  - name: CPU
+    provider: cpu
     enabled: true
-    metrics: ["load", "temp", "memory"]
-interval_seconds: 5
-commands:
-  1: "sudo shutdown -h now"
-  2: "systemctl restart myservice"
+  - name: GPU0
+    provider: gpu
+    enabled: true
+
+# Commands reserved for Phase 6
+#commands:
+#  - id: 1
+#    label: Shutdown
+#    exec: "sudo shutdown -h now"

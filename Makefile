@@ -37,7 +37,7 @@ ci: fmt-check lint type test arduino-build
 # E2E: build Arduino and run mock sender. Override with: make e2e PORT=/dev/ttyACM0
 PORT ?= /dev/ttyUSB0
 e2e: arduino-build
-	cd server && $(PY) python src/mock_sender.py --port=$(PORT)
+	cd server && $(PY) python -m src.mock_sender --port=$(PORT)
 
 # Docker compose placeholders (infra not yet present)
 up:
@@ -63,3 +63,11 @@ arduino-clean:
 
 arduino-test:
 	cd arduino && $(PIO) test
+
+# Convenience targets for server daemon (Phase 5)
+.PHONY: server-run server-dry-run
+server-run:
+	cd server && $(PY) python -m src.main --config config.example.yaml
+
+server-dry-run:
+	cd server && $(PY) python -m src.main --dry-run --once --config config.example.yaml
