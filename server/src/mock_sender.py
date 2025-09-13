@@ -19,7 +19,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         default=5.0,
         help="Seconds between updates (default: 5)",
     )
-    p.add_argument("--lines", type=int, default=4, help="Lines per update (default: 4)")
+    p.add_argument("--lines", type=int, default=10, help="Lines per update (default: 10)")
     return p.parse_args(argv)
 
 
@@ -35,12 +35,16 @@ def main(argv: list[str]) -> int:
     try:
         while True:
             now = time.strftime("%H:%M:%S")
+            # First 4 lines as before, then add extras up to args.lines
             lines: list[str] = [
                 f"Status {counter:06d}",
                 f"Time {now}",
                 "CPU 25% 42C",
                 "GPU 12% 512MB 45C",
-            ][: args.lines]
+            ]
+            # Add additional test lines (truncated on Arduino to 20 chars)
+            for i in range(4, args.lines):
+                lines.append(f"Item {i:02d} #{counter:06d}")
 
             payload = Outbound(lines=lines).encode()
             ser.write(payload)
