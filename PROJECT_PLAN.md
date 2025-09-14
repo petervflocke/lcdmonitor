@@ -87,13 +87,38 @@
     Do you want a single default layout (e.g., 4 key lines) or a longer 10–12 line page that you scroll?
     For GPU, prefer pynvml first with fallback to nvidia-smi, or nvidia-smi only?
 
-### Phase 6: Command Execution Loop
+### Phase 6: Commands UI & Execution (multi-step)
 
-- Extend Arduino to display incoming command list with IDs.
-- On encoder button press, Arduino sends selected command ID back to server.
-- Extend Python daemon to map IDs to predefined system commands (shutdown, restart, start process).
-- Secure execution by whitelisting commands in config.
-- Add integration tests with dummy commands.
+6.1 Arduino UI (modes, cursor, navigation)
+
+- Two modes: Telemetry and Commands. Telemetry shows only telemetry; Commands shows only commands.
+- Enter Commands: long press in Telemetry. Exit Commands: select the built-in `Exit` item (always appended) or long press (safety).
+- Commands list: labels from server; render with a cursor `>` at column 0 for the selected line.
+- Rotary in Commands: moves selection; window auto-scrolls to keep cursor visible. Selection index range is [0..N], where N is the `Exit` entry.
+- Double press in Commands: send the selected command (see protocol). Selecting `Exit` returns to Telemetry (no message) and resets Telemetry scroll to top.
+- Data structures: keep telemetry buffer unchanged; add a separate commands array (id + 19-char label), plus `cursor_index` and `window_start`.
+
+6.2 Server protocol (logging only; no execution)
+
+- Framing: newline-separated frames with blank-line terminator.
+- Commands frame (server → Arduino): first line `COMMANDS v1`, followed by one command per line as `<id> <label>` (server truncates to fit 20 chars).
+- Arduino requests: `REQ COMMANDS` when entering Commands mode; Arduino switches to waiting view until the frame arrives.
+- Selection (Arduino → server): `SELECT <id>` on double press. Selecting `Exit` sends nothing.
+- Server behavior: on `REQ COMMANDS`, send current Commands frame; on `SELECT <id>`, log `selected id=<id> label=<label>`. Ignore all non-command lines.
+- Refresh strategy: do not spam commands; send on request. Device reboot is covered because entering Commands mode triggers a request.
+
+6.3 Command execution (deferred)
+
+- Config: whitelist mapping `{id -> label, exec}`; no free-form args by default; allow fixed args only.
+- Execution: prefer systemd units or sudoers rules tailored to these commands to avoid running as root broadly. Alternatively, a small privileged helper with a strict allowlist.
+- Security: never execute unknown IDs; validate config on load; log structured results; redact sensitive output.
+- Tests: integration with dummy commands; simulate failures and permission denials.
+
+6.4 Service packaging
+
+- Provide a systemd unit for the server daemon (config path, env, restart policy).
+- Serial permissions via group membership or udev rule; document in `/docs`.
+- Logging to journald; optional rotation and metrics later.
 
 ### Phase 7: Hardening & Docs
 
@@ -101,3 +126,15 @@
 - Expand `/docs` with usage instructions, wiring diagrams, config examples.
 - Implement monitoring and metrics for Python daemon (OpenTelemetry optional).
 - Finalize ADRs for architecture choices.
+
+### Phase 8 (Optional): Heartbeat Controller (LED on D5)
+
+- Goal: Hardware link-health indicator with zero LCD changes.
+- Hardware: drive an external LED on `D5` via 220Ω to GND (preferred). Optionally switch to the built-in `D13` LED if wiring is not desired.
+- States & patterns (non-blocking):
+  - OK (fresh frames ≤ 2× interval): single short blink at 1 Hz (≈80 ms ON per second).
+  - Stale (> 2× to 10× interval): double-blink every 2 s (two ≈80 ms pulses, 150 ms apart).
+  - Lost (> 10× interval): LED OFF (optionally a very slow 0.2 Hz blink if desired later).
+- Implementation: small millis()-based scheduler/state machine; update `lastFrameMs` on both data and heartbeat frames; no `delay()`; no LCD changes.
+- Config: fixed thresholds initially; future optional tuning via server config if needed.
+- Verification: manual check of LED patterns while stopping/starting the server; keep Arduino resource use minimal.

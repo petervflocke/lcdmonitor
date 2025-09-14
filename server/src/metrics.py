@@ -1,5 +1,6 @@
 from __future__ import annotations
 import warnings
+import subprocess
 import psutil
 from typing import Optional, Iterable, Any
 
@@ -51,30 +52,67 @@ def _load_nvml():
 
 
 def gpu_summary() -> Optional[str]:
+    """Return GPU summary using NVML, with nvidia-smi fallback.
+
+    Output format: "gpu% mem% tempC" (each right-aligned to width 3).
+    Returns None if no GPU metrics are available.
+    """
     nvml = _load_nvml()
-    if nvml is None:
-        return None
-    try:
-        nvml.nvmlInit()
-        h = nvml.nvmlDeviceGetHandleByIndex(0)
-        util = nvml.nvmlDeviceGetUtilizationRates(h)
-        mem = nvml.nvmlDeviceGetMemoryInfo(h)
-        temp = nvml.nvmlDeviceGetTemperature(h, nvml.NVML_TEMPERATURE_GPU)
-        mem_pct = 0
+    if nvml is not None:
         try:
-            if getattr(mem, "total", 0):
-                mem_pct = int(round((mem.used / mem.total) * 100))
-        except Exception:
+            nvml.nvmlInit()
+            h = nvml.nvmlDeviceGetHandleByIndex(0)
+            util = nvml.nvmlDeviceGetUtilizationRates(h)
+            mem = nvml.nvmlDeviceGetMemoryInfo(h)
+            temp = nvml.nvmlDeviceGetTemperature(h, nvml.NVML_TEMPERATURE_GPU)
             mem_pct = 0
-        # Show mem utilization in percent instead of MB, width 3
-        return f"{_pad3(int(util.gpu))}% {_pad3(mem_pct)}% {_pad3(int(temp))}C"
-    except Exception:
-        return None
-    finally:
-        try:
-            nvml.nvmlShutdown()
+            try:
+                if getattr(mem, "total", 0):
+                    mem_pct = int(round((mem.used / mem.total) * 100))
+            except Exception:
+                mem_pct = 0
+            return f"{_pad3(int(util.gpu))}% {_pad3(mem_pct)}% {_pad3(int(temp))}C"
         except Exception:
             pass
+        finally:
+            try:
+                nvml.nvmlShutdown()
+            except Exception:
+                pass
+
+    # NVML not available or failed; try nvidia-smi fallback
+    return _gpu_summary_nvidia_smi()
+
+
+def _gpu_summary_nvidia_smi() -> Optional[str]:
+    """Query nvidia-smi for utilization, memory and temperature.
+
+    Returns formatted string or None if nvidia-smi is not available or parsing fails.
+    """
+    try:
+        # Query without units, CSV no header: util.gpu, mem.used, mem.total, temp.gpu
+        res = subprocess.run(
+            [
+                "nvidia-smi",
+                "--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu",
+                "--format=csv,noheader,nounits",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        line = res.stdout.strip().splitlines()[0]
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) < 4:
+            return None
+        gpu_util = int(round(float(parts[0])))
+        mem_used = float(parts[1])
+        mem_total = float(parts[2])
+        temp = int(round(float(parts[3])))
+        mem_pct = int(round((mem_used / mem_total) * 100)) if mem_total else 0
+        return f"{_pad3(gpu_util)}% {_pad3(mem_pct)}% {_pad3(temp)}C"
+    except Exception:
+        return None
 
 
 def _pick_temp_entry(arr: Iterable[Any]) -> Optional[int]:

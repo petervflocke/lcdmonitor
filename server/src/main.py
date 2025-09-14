@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 import threading
 import time
@@ -23,6 +24,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="Disable printing lines read from Arduino",
     )
+    p.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable INFO-level logging (default is ERROR)",
+    )
     return p.parse_args(argv)
 
 
@@ -36,7 +42,7 @@ def _reader(ser: serial.Serial, stop: threading.Event) -> None:  # pragma: no co
                 except Exception:
                     print(f"[arduino bytes] {line!r}")
         except Exception as e:
-            print(f"[reader error] {e}", file=sys.stderr)
+            logging.getLogger(__name__).error("reader error: %s", e)
             break
 
 
@@ -89,10 +95,14 @@ def _collect_lines(cfg: AppConfig) -> List[str]:
 
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
+    # Logging: minimal by default (ERROR). --verbose switches to INFO.
+    lvl = logging.INFO if args.verbose else logging.ERROR
+    logging.basicConfig(level=lvl, format="%(levelname)s:%(name)s:%(message)s", stream=sys.stderr)
+    log = logging.getLogger(__name__)
     try:
         cfg = load_and_validate_config(args.config)
     except Exception as e:
-        print(f"Failed to load config: {e}", file=sys.stderr)
+        log.error("Failed to load config: %s", e)
         return 2
 
     if args.dry_run:
@@ -104,7 +114,7 @@ def main(argv: list[str]) -> int:
     try:
         ser = serial.Serial(cfg.serial.port, cfg.serial.baud, timeout=0.2)
     except Exception as e:
-        print(f"Failed to open serial port {cfg.serial.port}: {e}", file=sys.stderr)
+        log.error("Failed to open serial port %s: %s", cfg.serial.port, e)
         return 3
 
     try:
@@ -118,6 +128,8 @@ def main(argv: list[str]) -> int:
             payload = Outbound(lines=lines).encode()
             ser.write(payload)
             ser.flush()
+            if args.verbose:
+                log.info("sent %d line(s)", len(lines))
             if args.once:
                 return 0
             time.sleep(cfg.interval)

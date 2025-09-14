@@ -4,7 +4,7 @@
 - [x] Configure PlatformIO for Arduino Nano and LiquidCrystal.
 - [x] Configure Python project with uv, pytest, Ruff, mypy (strict).
 - [x] Add Makefile targets: `fmt`, `fmt-check`, `lint`, `type`, `test`, `ci`, `e2e`, `setup`.
-- [x] Define manual CI process using Makefile targets (no GitHub Actions). Run `make ci` locally before PRs.
+- [x] Add GitHub Actions workflows (Python, Arduino). Currently manual via `workflow_dispatch`; enable push/PR triggers in a later phase.
 
 ### Phase 1: Arduino Proof of Concept
 
@@ -32,7 +32,7 @@
 - [x] Display first 4 lines on LCD, scrollable via rotary encoder.
 - [x] Watchdog reset to "Waiting for data..." after timeout if stream stops.
 - [x] Verified on hardware with mock sender.
--
+
 
 ### Phase 5: Server Sensor Reader
 
@@ -40,13 +40,18 @@
 - [x] Implement daemon with dry-run/once and serial output (`server/src/main.py`).
 - [x] Update example config (`server/config.example.yaml`).
 - [x] Add unit tests for config parsing and dry-run assembly (`server/tests`).
-- [ ] Add GPU fallback via `nvidia-smi` when NVML unavailable.
-- [ ] Add logging/metrics and docs updates.
+- [x] Add GPU fallback via `nvidia-smi` when NVML unavailable.
+- [x] Add minimal logging (default ERROR, `--verbose` for INFO). Metrics hooks TBD.
 -
 
-### Phase 6: Command Execution Loop
+### Phase 6: Commands UI & Protocol (logging only)
 
--
+- [ ] Server: respond to `REQ COMMANDS` with a `COMMANDS v1` frame assembled from config.
+- [ ] Server: on `SELECT <id>`, log `selected id=<id> label=<label>` (no execution).
+- [ ] Config: define `commands: [{id, label}]` and update `server/config.example.yaml`.
+- [ ] Tests: unit tests for commands frame assembly and select logging handler.
+- [ ] Docs: add ADR/update for commands protocol specifics.
+- [ ] Arduino (next subphase): add Commands mode UI (cursor, scroll) and `REQ COMMANDS` on enter.
 
 ### Phase 7: Hardening & Docs
 
