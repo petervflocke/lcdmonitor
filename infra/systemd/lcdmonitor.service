@@ -1,0 +1,17 @@
+[#] Example systemd unit for the Python server daemon
+[Unit]
+Description=LCD Monitor Server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Development/arduino/lcdmonitor
+Environment=PYTHONUNBUFFERED=1
+ExecStart=%h/Development/arduino/lcdmonitor/server/.venv/bin/python -m src.main --config server/config.example.yaml
+Restart=on-failure
+RestartSec=5
+# Ensure the user is in the 'dialout' (or equivalent) group for serial access
+
+[Install]
+WantedBy=multi-user.target
+

@@ -8,8 +8,9 @@ import time
 from typing import List, Optional
 
 import serial
+import subprocess
 
-from .config import AppConfig, SensorConfig, load_and_validate_config
+from .config import AppConfig, CommandConfig, SensorConfig, load_and_validate_config
 from .metrics import cpu_summary, gpu_summary, temp_summary
 from .protocol import Outbound
 
@@ -29,16 +30,72 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="Enable INFO-level logging (default is ERROR)",
     )
+    p.add_argument(
+        "--allow-exec",
+        action="store_true",
+        help="Allow executing configured commands (DANGEROUS). Off by default.",
+    )
     return p.parse_args(argv)
 
 
-def _reader(ser: serial.Serial, stop: threading.Event) -> None:  # pragma: no cover
+def _encode_commands_frame(cmds: list[CommandConfig]) -> bytes:
+    lines = ["COMMANDS v1"]
+    for c in cmds:
+        # Format: "<id> <label>", truncate to LCD width
+        # Ensure no newlines sneak in
+        lid = str(c.id).replace("\n", " ").strip()
+        lbl = str(c.label).replace("\n", " ").strip()
+        lines.append(f"{lid} {lbl}"[:20])
+    return Outbound(lines=lines).encode()
+
+
+def _maybe_execute(cmd: CommandConfig, allow: bool, log: logging.Logger) -> None:
+    if not allow:
+        log.info("execution blocked id=%s label=%s cmd=%s", cmd.id, cmd.label, cmd.exec)
+        return
+    if not cmd.exec:
+        log.info("no exec configured for id=%s label=%s", cmd.id, cmd.label)
+        return
+    try:
+        # Note: execution path is disabled by default; when enabled, we use the shell
+        # for compatibility with admin-provided commands. In the future prefer
+        # systemd/sudoers allowlisted units.
+        subprocess.Popen(cmd.exec, shell=True)
+        log.info("started exec id=%s label=%s", cmd.id, cmd.label)
+    except Exception as e:
+        log.error("failed to start exec id=%s label=%s: %s", cmd.id, cmd.label, e)
+
+
+def _handle_incoming_line(
+    line: str, ser: serial.Serial, cfg: AppConfig, log: logging.Logger, allow_exec: bool = False
+) -> None:
+    msg = line.strip()
+    if msg == "REQ COMMANDS":
+        payload = _encode_commands_frame(cfg.commands)
+        try:
+            ser.write(payload)
+            ser.flush()
+        except Exception as e:  # pragma: no cover - hardware dependent
+            log.error("failed to send commands: %s", e)
+        return
+    if msg.startswith("SELECT "):
+        sel = msg[len("SELECT ") :].strip()
+        cmd = next((c for c in cfg.commands if str(c.id) == sel), None)
+        label = cmd.label if cmd else ""
+        log.info("selected id=%s label=%s", sel, label)
+        if cmd is not None:
+            _maybe_execute(cmd, allow_exec, log)
+
+
+def _reader(ser: serial.Serial, stop: threading.Event, cfg: AppConfig, log: logging.Logger) -> None:  # pragma: no cover
     while not stop.is_set():
         try:
             line = ser.readline()
             if line:
                 try:
-                    print(f"[arduino] {line.decode(errors='replace').rstrip()}")
+                    text = line.decode(errors="replace").rstrip()
+                    print(f"[arduino] {text}")
+                    _handle_incoming_line(text, ser, cfg, log)
                 except Exception:
                     print(f"[arduino bytes] {line!r}")
         except Exception as e:
@@ -121,7 +178,9 @@ def main(argv: list[str]) -> int:
         reader_stop = threading.Event()
         reader_thread: threading.Thread | None = None
         if not args.no_echo:
-            reader_thread = threading.Thread(target=_reader, args=(ser, reader_stop), daemon=True)
+            reader_thread = threading.Thread(
+                target=_reader, args=(ser, reader_stop, cfg, log), daemon=True
+            )
             reader_thread.start()
         while True:
             lines = _collect_lines(cfg)

@@ -1,4 +1,4 @@
-interval: 5.0
+interval: 1.0
 serial:
   port: /dev/ttyUSB0
   baud: 115200
@@ -44,8 +44,20 @@ sensors:
           chip: nvme
           label: "Sensor 2"
 
-# Commands reserved for Phase 6
-#commands:
-#  - id: 1
-#    label: Shutdown
-#    exec: "sudo shutdown -h now"
+# Commands for Phase 6 (server protocol only; execution disabled by default)
+commands:
+  - id: "1"
+    label: Shutdown
+    exec: "sudo shutdown -h now"
+  - id: "2"
+    label: Reboot
+    exec: "sudo shutdown -r now"
+  - id: "3"
+    label: Command 3
+    exec: "/usr/bin/echo example"
+  - id: "98"
+    label: "Something Else 1"
+    exec: "/usr/bin/true"
+  - id: "99"
+    label: "Something Else 2"
+    exec: "/usr/bin/false"

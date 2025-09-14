@@ -46,12 +46,12 @@
 
 ### Phase 6: Commands UI & Protocol (logging only)
 
-- [ ] Server: respond to `REQ COMMANDS` with a `COMMANDS v1` frame assembled from config.
-- [ ] Server: on `SELECT <id>`, log `selected id=<id> label=<label>` (no execution).
-- [ ] Config: define `commands: [{id, label}]` and update `server/config.example.yaml`.
-- [ ] Tests: unit tests for commands frame assembly and select logging handler.
-- [ ] Docs: add ADR/update for commands protocol specifics.
-- [ ] Arduino (next subphase): add Commands mode UI (cursor, scroll) and `REQ COMMANDS` on enter.
+- [x] Server: respond to `REQ COMMANDS` with a `COMMANDS v1` frame assembled from config.
+- [x] Server: on `SELECT <id>`, log `selected id=<id> label=<label>` (no execution).
+- [x] Config: define `commands: [{id, label}]` and update `server/config.example.yaml`.
+- [x] Tests: unit tests for commands frame assembly and select logging handler.
+ - [ ] Docs: add ADR/update for commands protocol specifics.
+ - [ ] Arduino (next subphase): add Commands mode UI (cursor, scroll) and `REQ COMMANDS` on enter.
 
 ### Phase 7: Hardening & Docs
 

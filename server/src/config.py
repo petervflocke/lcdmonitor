@@ -14,6 +14,13 @@ class SerialConfig:
 
 
 @dataclass
+class CommandConfig:
+    id: str
+    label: str
+    exec: str | None = None
+
+
+@dataclass
 class SensorConfig:
     name: str
     provider: str
@@ -29,6 +36,7 @@ class AppConfig:
     serial: SerialConfig = field(default_factory=SerialConfig)
     max_lines: int = 12
     sensors: List[SensorConfig] = field(default_factory=list)
+    commands: List[CommandConfig] = field(default_factory=list)
 
 
 _ALLOWED_PROVIDERS = {"cpu", "gpu", "temp", "join"}
@@ -127,7 +135,22 @@ def load_config(path: str | Path) -> AppConfig:
             )
         )
 
-    return AppConfig(interval=interval, serial=serial, max_lines=max_lines, sensors=sensors)
+    # commands (Phase 6)
+    commands: list[CommandConfig] = []
+    for item in data.get("commands", []) or []:
+        if not isinstance(item, dict):
+            continue
+        cid = str(item.get("id", "")).strip()
+        label = str(item.get("label", "")).strip()
+        if not cid or not label:
+            continue
+        exec_cmd_raw = item.get("exec")
+        exec_cmd = str(exec_cmd_raw).strip() if isinstance(exec_cmd_raw, str) else None
+        commands.append(CommandConfig(id=cid, label=label, exec=exec_cmd))
+
+    return AppConfig(
+        interval=interval, serial=serial, max_lines=max_lines, sensors=sensors, commands=commands
+    )
 
 
 def validate_config(cfg: AppConfig) -> None:
@@ -151,6 +174,20 @@ def validate_config(cfg: AppConfig) -> None:
                     raise ValueError(
                         f"sensors[{i}].join[{j}] '{c.name}': invalid provider '{c.provider}'"
                     )
+
+    # commands: ensure unique ids
+    seen: set[str] = set()
+    for j, c in enumerate(cfg.commands):
+        if not c.id:
+            raise ValueError(f"commands[{j}]: id must be non-empty")
+        if not c.label:
+            raise ValueError(f"commands[{j}]: label must be non-empty")
+        if c.id in seen:
+            raise ValueError(f"commands[{j}]: duplicate id '{c.id}'")
+        seen.add(c.id)
+        # exec can be None for placeholder items; when present, require non-empty
+        if c.exec is not None and not c.exec.strip():
+            raise ValueError(f"commands[{j}]: exec must be non-empty when provided")
 
 
 def load_and_validate_config(path: str | Path) -> AppConfig:
