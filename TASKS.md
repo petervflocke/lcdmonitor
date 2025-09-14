@@ -50,8 +50,14 @@
 - [x] Server: on `SELECT <id>`, log `selected id=<id> label=<label>` (no execution).
 - [x] Config: define `commands: [{id, label}]` and update `server/config.example.yaml`.
 - [x] Tests: unit tests for commands frame assembly and select logging handler.
- - [ ] Docs: add ADR/update for commands protocol specifics.
- - [ ] Arduino (next subphase): add Commands mode UI (cursor, scroll) and `REQ COMMANDS` on enter.
+ - [x] Docs: add ADR/update for commands protocol specifics.
+ - [x] Arduino (next subphase): add Commands mode UI (cursor, scroll) and `REQ COMMANDS` on enter.
+
+### Phase 6.4: Service Packaging (System mode)
+
+- [x] Provide a systemd system service unit (root-managed) with hardening defaults.
+- [x] Add Makefile targets with install instructions for system mode.
+- [x] Document deployment steps (service user, dialout group, venv in /opt, /etc/default env file).
 
 ### Phase 7: Hardening & Docs
 

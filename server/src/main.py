@@ -35,6 +35,15 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="Allow executing configured commands (DANGEROUS). Off by default.",
     )
+    p.add_argument(
+        "--exec-driver",
+        choices=["systemd-user", "systemd-system", "shell"],
+        default="systemd-user",
+        help=(
+            "Execution backend when --allow-exec is set: "
+            "systemd-user (default), systemd-system, or shell"
+        ),
+    )
     return p.parse_args(argv)
 
 
@@ -49,17 +58,48 @@ def _encode_commands_frame(cmds: list[CommandConfig]) -> bytes:
     return Outbound(lines=lines).encode()
 
 
-def _maybe_execute(cmd: CommandConfig, allow: bool, log: logging.Logger) -> None:
+def _start_via_systemd(
+    cmd_str: str, cmd_id: str, label: str, scope: str, log: logging.Logger
+) -> None:
+    """Start command using systemd-run --user as a transient unit.
+
+    Logs outcome; relies on the user session systemd. Output is captured by journald.
+    """
+    # Compose a simple unit name: lcdcmd-<id>-<timestamp>
+    unit = f"lcdcmd-{cmd_id}-{int(time.time())}"
+    # Wrap command in /bin/sh -lc to support shell strings from config
+    full = ["systemd-run"]
+    if scope == "systemd-user":
+        full.append("--user")
+    # For system scope, omit --user to run under the system manager
+    full += [
+        "--unit",
+        unit,
+        "--collect",
+        "--property=Restart=no",
+        "/bin/sh",
+        "-lc",
+        cmd_str,
+    ]
+    try:
+        subprocess.run(full, check=True, capture_output=True, text=True)
+        log.info("started systemd unit=%s id=%s label=%s", unit, cmd_id, label)
+    except Exception as e:
+        log.error("failed to start systemd unit for id=%s label=%s: %s", cmd_id, label, e)
+
+
+def _maybe_execute(cmd: CommandConfig, allow: bool, driver: str, log: logging.Logger) -> None:
     if not allow:
         log.info("execution blocked id=%s label=%s cmd=%s", cmd.id, cmd.label, cmd.exec)
         return
     if not cmd.exec:
         log.info("no exec configured for id=%s label=%s", cmd.id, cmd.label)
         return
+    if driver in ("systemd-user", "systemd-system"):
+        _start_via_systemd(cmd.exec, str(cmd.id), cmd.label, driver, log)
+        return
+    # Shell driver (compatible, less safe)
     try:
-        # Note: execution path is disabled by default; when enabled, we use the shell
-        # for compatibility with admin-provided commands. In the future prefer
-        # systemd/sudoers allowlisted units.
         subprocess.Popen(cmd.exec, shell=True)
         log.info("started exec id=%s label=%s", cmd.id, cmd.label)
     except Exception as e:
@@ -67,7 +107,12 @@ def _maybe_execute(cmd: CommandConfig, allow: bool, log: logging.Logger) -> None
 
 
 def _handle_incoming_line(
-    line: str, ser: serial.Serial, cfg: AppConfig, log: logging.Logger, allow_exec: bool = False
+    line: str,
+    ser: serial.Serial,
+    cfg: AppConfig,
+    log: logging.Logger,
+    allow_exec: bool = False,
+    exec_driver: str = "shell",
 ) -> None:
     msg = line.strip()
     if msg == "REQ COMMANDS":
@@ -84,10 +129,17 @@ def _handle_incoming_line(
         label = cmd.label if cmd else ""
         log.info("selected id=%s label=%s", sel, label)
         if cmd is not None:
-            _maybe_execute(cmd, allow_exec, log)
+            _maybe_execute(cmd, allow_exec, exec_driver, log)
 
 
-def _reader(ser: serial.Serial, stop: threading.Event, cfg: AppConfig, log: logging.Logger) -> None:  # pragma: no cover
+def _reader(
+    ser: serial.Serial,
+    stop: threading.Event,
+    cfg: AppConfig,
+    log: logging.Logger,
+    allow_exec: bool,
+    exec_driver: str,
+) -> None:  # pragma: no cover
     while not stop.is_set():
         try:
             line = ser.readline()
@@ -95,7 +147,7 @@ def _reader(ser: serial.Serial, stop: threading.Event, cfg: AppConfig, log: logg
                 try:
                     text = line.decode(errors="replace").rstrip()
                     print(f"[arduino] {text}")
-                    _handle_incoming_line(text, ser, cfg, log)
+                    _handle_incoming_line(text, ser, cfg, log, allow_exec=allow_exec, exec_driver=exec_driver)
                 except Exception:
                     print(f"[arduino bytes] {line!r}")
         except Exception as e:
@@ -179,7 +231,16 @@ def main(argv: list[str]) -> int:
         reader_thread: threading.Thread | None = None
         if not args.no_echo:
             reader_thread = threading.Thread(
-                target=_reader, args=(ser, reader_stop, cfg, log), daemon=True
+                target=_reader,
+                args=(
+                    ser,
+                    reader_stop,
+                    cfg,
+                    log,
+                    bool(args.allow_exec),
+                    str(args.exec_driver),
+                ),
+                daemon=True,
             )
             reader_thread.start()
         while True:

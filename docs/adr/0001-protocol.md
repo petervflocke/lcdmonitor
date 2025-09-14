@@ -15,6 +15,13 @@ Pros: trivial to debug with `pio device monitor`. Cons: less robust to stray byt
   - Arduino appends an implicit `Exit` entry in the UI (does not require a frame line).
 - Request/selection (Arduino → server):
   - `REQ COMMANDS` when entering Commands mode (long press). Server responds with the latest commands frame.
-  - `SELECT <id>` on double press (except when `Exit` is selected). Server logs the selection and may optionally execute a configured command if enabled.
+- `SELECT <id>` on double press (except when `Exit` is selected). Server logs the selection and may optionally execute a configured command if enabled.
 - Feedback:
   - For now, feedback is logging-only on the server (`INFO` level with `--verbose`). No LCD acknowledgement is rendered to keep the UI minimal; shutdown/reboot may terminate before feedback could be displayed anyway. We may add an optional one-line `OK`/`FAIL` toast later.
+
+### Execution model
+
+- Default: execution disabled. Run the daemon with `--allow-exec` to enable.
+- Backend: `--exec-driver=systemd|shell` (default: `systemd`).
+  - `systemd`: uses `systemd-run --user` to spawn a transient unit per selection. Output goes to journald and can be inspected with `journalctl --user -u lcdcmd-<id>-<ts>`.
+  - `shell`: runs the configured `exec` string via `/bin/sh -lc` (less safe; for development only).
