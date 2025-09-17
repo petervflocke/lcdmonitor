@@ -34,17 +34,15 @@ This guide explains how to run the Python server as a supervised systemd service
   - `sudo mkdir -p /opt/lcdmonitor /etc/lcdmonitor`
   - `sudo chown -R lcdmon:dialout /opt/lcdmonitor /etc/lcdmonitor`
 - Install app + venv under `/opt/lcdmonitor` (or your deployment tooling). Example:
-  - Create venv, install deps, and copy `server/` there; ensure `src` is importable.
+  - Create venv, install deps, and copy the repo to `/opt/lcdmonitor`; the bundled unit assumes `/opt/lcdmonitor/server` contains the Python package (`src`).
 - Configuration:
   - Create `/etc/lcdmonitor/config.yaml` (based on `server/config.example.yaml`).
   - Create `/etc/default/lcdmonitor` with:
     - `LCDMONITOR_VENV=/opt/lcdmonitor/.venv`
     - `LCDMONITOR_CONFIG=/etc/lcdmonitor/config.yaml`
-- Install system unit:
-  - `sudo cp infra/systemd/lcdmonitor.system.service /etc/systemd/system/lcdmonitor.service`
-  - Edit `User=`, `Group=`, and `WorkingDirectory=` if necessary.
-  - `sudo systemctl daemon-reload`
-  - `sudo systemctl enable --now lcdmonitor`
+- Install system unit (two options):
+  - Manual: `sudo cp infra/systemd/lcdmonitor.system.service /etc/systemd/system/lcdmonitor.service`, edit `User=`, `Group=`, `EnvironmentFile=`, then `sudo systemctl daemon-reload && sudo systemctl enable --now lcdmonitor`.
+  - Automated: `sudo make service-system-install SERVICE_USER=lcdmon SERVICE_GROUP=dialout INSTALL_ROOT=/opt/lcdmonitor CONFIG_PATH=/etc/lcdmonitor/config.yaml ENV_FILE=/etc/default/lcdmonitor` rsyncs the current checkout into `${INSTALL_ROOT}` (set `COPY_REPO=0` to skip; falls back to `tar` without deletion if `rsync` is missing), seeds `/etc/default/lcdmonitor`, copies the adjusted unit into place, reloads systemd, and enables the service (unless `ENABLE_SERVICE=0`). The helper expects the service user/group to exist and the virtualenv at `${INSTALL_ROOT}/.venv` to contain the dependencies.
 - Logs:
   - `sudo journalctl -u lcdmonitor -f`
 
@@ -78,5 +76,5 @@ This guide explains how to run the Python server as a supervised systemd service
 ## Makefile helpers
 
 - `make service-user-install`: prints the steps to install a user-mode service.
-- `make service-system-install`: prints the steps to install a system-mode service.
-
+- `make service-system-notes`: prints the manual steps for system mode.
+- `sudo make service-system-install`: installs/updates the systemd unit and helper files (override variables to match your deployment paths).

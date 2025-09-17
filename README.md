@@ -46,27 +46,32 @@ Systemd units live in `infra/systemd/` and are documented in detail in `docs/dep
   systemctl --user enable --now lcdmonitor
   journalctl --user -u lcdmonitor -f
   ```
-  For headless operation, enable lingering via `loginctl enable-linger $USER`.
+  For headless operation, enable lingering via `loginctl enable-linger $USER`. `make service-user-install` only prints these instructions—you still copy/edit the unit manually.
 
-- **System Service (production)** – `infra/systemd/lcdmonitor.system.service` assumes a dedicated service account (e.g. `lcdmon`) that belongs to the serial group (`dialout`, `uucp`, etc.). Provision `/opt/lcdmonitor` (code + virtualenv) and `/etc/lcdmonitor/config.yaml`, then create `/etc/default/lcdmonitor` with:
+- **System Service (production)** – `infra/systemd/lcdmonitor.system.service` assumes a dedicated service account (e.g. `lcdmon`) that belongs to the serial group (`dialout`, `uucp`, etc.). Create `/etc/lcdmonitor/config.yaml`, then create `/etc/default/lcdmonitor` with:
   ```ini
   LCDMONITOR_VENV=/opt/lcdmonitor/.venv
   LCDMONITOR_CONFIG=/etc/lcdmonitor/config.yaml
   ```
-  Install and start the unit:
+  Prerequisites before installation:
+  1. Create the service user and add it to the serial group (e.g., `sudo useradd -r -s /usr/sbin/nologin -G dialout lcdmon`).
+  2. Decide on an install root (`INSTALL_ROOT`, default `/opt/lcdmonitor`).
+  3. Prepare the Python virtualenv at `${INSTALL_ROOT}/.venv` with runtime and dev deps (`make setup` inside the repo). If the virtualenv isn't ready yet, run the installer with `ENABLE_SERVICE=0` so it won't start the daemon until you finish provisioning.
+
+  Automated install (overrides optional):
   ```bash
-  sudo cp infra/systemd/lcdmonitor.system.service /etc/systemd/system/lcdmonitor.service
-  sudo systemctl daemon-reload
-  sudo systemctl enable --now lcdmonitor
-  sudo journalctl -u lcdmonitor -f
+  sudo make service-system-install SERVICE_USER=lcdmon SERVICE_GROUP=dialout INSTALL_ROOT=/opt/lcdmonitor \
+    CONFIG_PATH=/etc/lcdmonitor/config.yaml ENV_FILE=/etc/default/lcdmonitor
   ```
-  Command execution stays disabled by default; add `--allow-exec --exec-driver systemd-system` to `ExecStart` once you have a whitelist in the config.
+  Run this from a clean checkout on the server. The target rsyncs the current repo into `${INSTALL_ROOT}` (set `COPY_REPO=0` to skip; falls back to `tar` if `rsync` is unavailable), seeds `/etc/default/lcdmonitor`, copies the hardened unit into `/etc/systemd/system/lcdmonitor.service`, reloads systemd, and enables the service (unless `ENABLE_SERVICE=0`). Command execution stays disabled by default; add `--allow-exec --exec-driver systemd-system` to `ExecStart` once you have a whitelist in the config.
 
 Make helpers print the same instructions for quick reference:
 ```bash
 make service-user-install
-make service-system-install
+make service-system-notes
+sudo make service-system-install [SERVICE_USER=… SERVICE_GROUP=… INSTALL_ROOT=…]
 ```
+`service-system-install` expects the prerequisites above (existing service account, deployed repo, ready virtualenv). It will warn if the user or group are missing.
 
 ## Testing and CI
 - `make ci` runs formatting checks, lint, mypy, pytest, and an Arduino build.

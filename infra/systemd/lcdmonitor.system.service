@@ -8,7 +8,7 @@ Type=simple
 # Run as a non-root user; adjust to your deployment user
 User=lcdmon
 Group=dialout
-WorkingDirectory=/opt/lcdmonitor
+WorkingDirectory=/opt/lcdmonitor/server
 EnvironmentFile=/etc/default/lcdmonitor
 ExecStart=${LCDMONITOR_VENV}/bin/python -m src.main --config ${LCDMONITOR_CONFIG} --exec-driver systemd-system
 Restart=on-failure
@@ -32,4 +32,3 @@ MemoryDenyWriteExecute=yes
 
 [Install]
 WantedBy=multi-user.target
-

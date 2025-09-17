@@ -5,12 +5,12 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/Development/arduino/lcdmonitor
+WorkingDirectory=%h/Development/arduino/lcdmonitor/server
 Environment=PYTHONUNBUFFERED=1
-ExecStart=%h/Development/arduino/lcdmonitor/server/.venv/bin/python -m src.main --config server/config.example.yaml
+ExecStart=%h/Development/arduino/lcdmonitor/server/.venv/bin/python -m src.main --config config.example.yaml
 Restart=on-failure
 RestartSec=5
 # Ensure the user is in the 'dialout' (or equivalent) group for serial access
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
