@@ -1,3 +1,15 @@
+## Status snapshot
+
+- [x] Phase 0: Setup & Environment
+- [x] Phase 1: Arduino Proof of Concept
+- [x] Phase 2: Arduino Input Handling
+- [x] Phase 3: Server Mockup
+- [x] Phase 4: Arduino Serial Integration
+- [x] Phase 5: Server Sensor Reader
+- [x] Phase 6: Commands UI & Packaging (logging only)
+- [ ] Phase 7: Hardening & Docs
+- [ ] Phase 8 (Optional): Heartbeat Controller (LED on D5)
+
 ### Phase 0: Setup & Environment
 
 - Scaffold monorepo with `/arduino` and `/server` directories.
@@ -81,11 +93,12 @@
 
     Update server/config.example.yaml with realistic examples (with and without GPU).
     Add notes on optional GPU support and how to enable/disable per machine.
-    Questions to confirm before I start
 
-    OK to add PyYAML as a dependency for config parsing?
-    Do you want a single default layout (e.g., 4 key lines) or a longer 10–12 line page that you scroll?
-    For GPU, prefer pynvml first with fallback to nvidia-smi, or nvidia-smi only?
+  Resolved decisions
+
+    - PyYAML is added for config parsing; maintain strict mypy coverage.
+    - Default layout emits up to 12 telemetry lines with Arduino-side scrolling.
+    - GPU support prefers `pynvml` with an `nvidia-smi` fallback when NVML is unavailable.
 
 ### Phase 6: Commands UI & Execution (multi-step)
 
