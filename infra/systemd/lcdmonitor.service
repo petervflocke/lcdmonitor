@@ -1,4 +1,4 @@
-[#] Example systemd unit for the Python server daemon
+# Example systemd unit for the Python server daemon
 [Unit]
 Description=LCD Monitor Server
 After=network.target
@@ -14,4 +14,3 @@ RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-
