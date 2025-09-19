@@ -1,45 +1,38 @@
 # Arduino Nano to HD44780 20x4 LCD wiring
 
-Pin;Arduino Nano;LCD 20x4 (HD44780)
+## LCD signal mapping
 
-LCD Pin	Function
-1	Ground (Vss)
-2	+5 Volts (Vdd)
-3	Contrast Adjust (Vee)
-4	RS
-5	R/W (or Ground)
-6	Enable (E)
-7	D0 (no used)
-8	D1 (no used)
-9	D2 (no used)
-10	D3 (no used)
-11	D4
-12	D5
-13	D6
-14	D7
-15	Anode (LED+)
-16	Cathode (LED-)
+| LCD Pin | Label       | Description                               | Arduino Connection |
+|--------:|-------------|-------------------------------------------|------------------------------------------|
+| 1       | VSS         | Ground reference                          | GND                                      |
+| 2       | VDD         | +5 V supply                               | +5V                                      |
+| 3       | VO          | Contrast control via 10 kΩ potentiometer  | Potentiometer wiper (ends to +5V and GND)|
+| 4       | RS          | Register select                           | D7                                       |
+| 5       | RW          | Read/write (tied low for write)           | GND                                      |
+| 6       | E           | Enable                                    | D8                                       |
+| 7       | D0          | Data bit 0 (unused)                       | Leave unconnected                        |
+| 8       | D1          | Data bit 1 (unused)                       | Leave unconnected                        |
+| 9       | D2          | Data bit 2 (unused)                       | Leave unconnected                        |
+| 10      | D3          | Data bit 3 (unused)                       | Leave unconnected                        |
+| 11      | D4          | Data bit 4                                | D9                                       |
+| 12      | D5          | Data bit 5                                | D10                                      |
+| 13      | D6          | Data bit 6                                | D11                                      |
+| 14      | D7          | Data bit 7                                | D12                                      |
+| 15      | LED+ (A)    | Backlight anode                           | +5V through 220 Ω resistor               |
+| 16      | LED− (K)    | Backlight cathode                         | GND                                      |
 
-## LCD wiring
+## LCD wiring               |
 
-# LCD;Arduino IO;Function
-1 VSS;GND;VSS (GND)
-2 VDD;+5V;VDD (+5V)
-3 VO;10k pot wiper;VO (contrast) resistor devider
-4 RS;D7;RS
-5 RW;GND;RW (GND)
-6 E;D8;E
-11 D4;D9;D4
-12 D5;D10;D5
-13 D6;D11;D6
-14 D7;D12;D7
-15 A (LED+);+5V via 220Ω;LED+
-16 K (LED-); 150ohm resistor -> GND;LED-
+**Notes**
+- Mount the 10 kΩ potentiometer between +5 V and GND, with the wiper on VO, to adjust LCD contrast.
+- If your LCD module includes an onboard current-limiting resistor, you can omit the external resistors for pins 15 and 16.
 
-## Rotary encoder wiring (later phase)
-Pin;Arduino Nano
-A;D2
-B;D3
-Button;D4
-GND;GND
-VCC;+5V
+## Rotary encoder wiring 
+
+| Encoder Signal | Arduino Nano Pin | Notes                        |
+|----------------|------------------|------------------------------|
+| A              | D2               | Attach interrupt-capable pin |
+| B              | D3               | Attach interrupt-capable pin |
+| Button         | D4               | Add soft pull-up             |
+
+Add hardware RC debouncing!
