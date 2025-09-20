@@ -43,6 +43,7 @@ This guide explains how to run the Python server as a supervised systemd service
 - Install system unit (two options):
   - Manual: `sudo cp infra/systemd/lcdmonitor.system.service /etc/systemd/system/lcdmonitor.service`, edit `User=`, `Group=`, `EnvironmentFile=`, then `sudo systemctl daemon-reload && sudo systemctl enable --now lcdmonitor`.
   - Automated: `sudo make service-system-install SERVICE_USER=lcdmon SERVICE_GROUP=dialout INSTALL_ROOT=/opt/lcdmonitor CONFIG_PATH=/etc/lcdmonitor/config.yaml ENV_FILE=/etc/default/lcdmonitor` rsyncs the current checkout into `${INSTALL_ROOT}` (set `COPY_REPO=0` to skip; falls back to `tar` without deletion if `rsync` is missing), seeds `/etc/default/lcdmonitor`, copies the adjusted unit into place, reloads systemd, ensures the config file is owned by the service account, and enables the service (unless `ENABLE_SERVICE=0`). The helper expects the service user/group to exist and the virtualenv at `${INSTALL_ROOT}/.venv` to contain the dependencies.
+  - Updating in place: after pulling new code, run `sudo make service-system-update SERVICE_USER=lcdmon SERVICE_GROUP=dialout INSTALL_ROOT=/opt/lcdmonitor CONFIG_PATH=/etc/lcdmonitor/config.yaml ENV_FILE=/etc/default/lcdmonitor`. This reruns the installer with `ENABLE_SERVICE=0`, reinstalls the Python package into the virtualenv, reloads systemd, restarts the service, and surfaces its status output.
 - Logs:
   - `sudo journalctl -u lcdmonitor -f`
 
@@ -78,3 +79,4 @@ This guide explains how to run the Python server as a supervised systemd service
 - `make service-user-install`: prints the steps to install a user-mode service.
 - `make service-system-notes`: prints the manual steps for system mode.
 - `sudo make service-system-install`: installs/updates the systemd unit and helper files (override variables to match your deployment paths).
+- `sudo make service-system-update`: refreshes the deployed code, reinstalls the Python package in the venv, and restarts the unit.

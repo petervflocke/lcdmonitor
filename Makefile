@@ -5,7 +5,8 @@ PIO=pio
 .PHONY: setup setup-pip fmt fmt-check lint type pytest test ci e2e up down audit \
         arduino-build arduino-upload arduino-monitor arduino-clean arduino-test \
         server-run server-dry-run server-run-pip server-dry-run-pip \
-        service-user-install service-system-install service-system-notes
+        service-user-install service-system-install service-system-notes \
+        service-system-update
 
 # Install Python deps (runtime + dev) with uv
 setup:
@@ -131,3 +132,16 @@ service-system-install:
 		ENV_FILE=$(ENV_FILE) UNIT_NAME=$(SYSTEMD_UNIT) \
 		SYSTEMD_DIR=$(SYSTEMD_DIR) ENABLE_SERVICE=$(ENABLE_SERVICE) \
 		scripts/install_system_service.sh
+
+# Update an existing system deployment after pulling new code.
+service-system-update:
+	@echo "Updating system deployment for $(SYSTEMD_UNIT) at $(INSTALL_ROOT)"
+	$(SUDO) $(MAKE) service-system-install \
+		SERVICE_USER=$(SERVICE_USER) SERVICE_GROUP=$(SERVICE_GROUP) \
+		INSTALL_ROOT=$(INSTALL_ROOT) CONFIG_PATH=$(CONFIG_PATH) \
+		ENV_FILE=$(ENV_FILE) SYSTEMD_UNIT=$(SYSTEMD_UNIT) \
+		SYSTEMD_DIR=$(SYSTEMD_DIR) ENABLE_SERVICE=0
+	$(SUDO) -u $(SERVICE_USER) $(INSTALL_ROOT)/.venv/bin/pip install --upgrade $(INSTALL_ROOT)/server
+	$(SUDO) systemctl daemon-reload
+	$(SUDO) systemctl restart $(SYSTEMD_UNIT)
+	$(SUDO) systemctl status $(SYSTEMD_UNIT) --no-pager
