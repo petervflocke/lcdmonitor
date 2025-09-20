@@ -38,10 +38,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument(
         "--exec-driver",
         choices=["systemd-user", "systemd-system", "shell"],
-        default="systemd-user",
+        default="shell",
         help=(
-            "Execution backend when --allow-exec is set: "
-            "systemd-user (default), systemd-system, or shell"
+            "Execution backend when --allow-exec is set: shell (default), "
+            "systemd-user, or systemd-system"
         ),
     )
     return p.parse_args(argv)

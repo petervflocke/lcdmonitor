@@ -35,7 +35,7 @@ Hardware upload/monitor commands are available via `make arduino-upload` and `ma
   ```bash
   make server-run
   ```
-  The config is driven by `server/config.example.yaml`; copy and edit it for your host. Enable command execution explicitly with `--allow-exec` and pick an execution driver (`systemd-user`, `systemd-system`, or `shell`).
+  The config is driven by `server/config.example.yaml`; copy and edit it for your host. Enable command execution explicitly with `--allow-exec` and pick an execution driver (`shell` is the default, `systemd-user` and `systemd-system` remain available).
 
 ## Systemd deployment
 Systemd units live in `infra/systemd/` and are documented in detail in `docs/deployment-systemd.md`. In short:
@@ -63,7 +63,7 @@ Systemd units live in `infra/systemd/` and are documented in detail in `docs/dep
   sudo make service-system-install SERVICE_USER=lcdmon SERVICE_GROUP=dialout INSTALL_ROOT=/opt/lcdmonitor \
     CONFIG_PATH=/etc/lcdmonitor/config.yaml ENV_FILE=/etc/default/lcdmonitor
   ```
-  Run this from a clean checkout on the server. The target rsyncs the current repo into `${INSTALL_ROOT}` (set `COPY_REPO=0` to skip; falls back to `tar` if `rsync` is unavailable), seeds `/etc/default/lcdmonitor`, copies the hardened unit into `/etc/systemd/system/lcdmonitor.service`, adjusts ownership of `/etc/lcdmonitor/config.yaml`, reloads systemd, and enables the service (unless `ENABLE_SERVICE=0`). Command execution stays disabled by default; add `--allow-exec --exec-driver systemd-system` to `ExecStart` once you have a whitelist in the config.
+  Run this from a clean checkout on the server. The target rsyncs the current repo into `${INSTALL_ROOT}` (set `COPY_REPO=0` to skip; falls back to `tar` if `rsync` is unavailable), seeds `/etc/default/lcdmonitor`, copies the hardened unit into `/etc/systemd/system/lcdmonitor.service`, adjusts ownership of `/etc/lcdmonitor/config.yaml`, reloads systemd, and enables the service (unless `ENABLE_SERVICE=0`). Command execution stays disabled by default; add `--allow-exec --exec-driver shell` to `ExecStart` once you have a whitelist in the config (or switch to another driver if you have systemd privileges configured).
 
   Once the virtualenv is provisioned, future updates only require pulling latest code and running:
   ```bash
@@ -71,6 +71,8 @@ Systemd units live in `infra/systemd/` and are documented in detail in `docs/dep
     CONFIG_PATH=/etc/lcdmonitor/config.yaml ENV_FILE=/etc/default/lcdmonitor
   ```
   This reruns the installer with `ENABLE_SERVICE=0`, upgrades the installed Python package in the venv, then restarts the service and prints its status.
+
+  Root-level commands should use `sudo -n` and you must grant the service user explicit passwordless sudo rules (e.g., `lcdmon ALL=(root) NOPASSWD:/sbin/shutdown,/sbin/reboot`) to avoid prompts.
 
 Make helpers print the same instructions for quick reference:
 ```bash

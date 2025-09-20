@@ -6,7 +6,7 @@ This guide explains how to run the Python server as a supervised systemd service
 
 - Development machines: prefer a user service (no sudo, logs in user journal).
 - Headless/production: prefer a system service (root-managed, runs at boot).
-- Execution of configured commands remains disabled by default. Enable explicitly with `--allow-exec` and choose an exec driver.
+- Execution of configured commands remains disabled by default. Enable explicitly with `--allow-exec` and choose an exec driver (the `shell` driver is the default for compatibility; see notes below).
 
 ## Prerequisites
 
@@ -51,11 +51,12 @@ This guide explains how to run the Python server as a supervised systemd service
 
 - By default the daemon does not execute commands; it only logs selections.
 - Enable with `--allow-exec`. Choose backend with `--exec-driver`:
-  - `systemd-user`: transient units via `systemd-run --user` (default).
-  - `systemd-system`: transient units via `systemd-run` (system manager).
-  - `shell`: `/bin/sh -lc "<exec>"` (for development only; less safe).
+  - `shell` (default): runs `/bin/sh -lc "<exec>"` as the service user. Combine with restrictive sudo rules (`sudo -n …`) if root access is required.
+  - `systemd-user`: creates transient units via `systemd-run --user`; requires a running user manager (e.g., `loginctl enable-linger lcdmon`).
+  - `systemd-system`: creates transient units via the system manager; only works if the service user has polkit/sudo permission to call `systemd-run` at the system scope.
 - Example ExecStart for system service (via env file):
-  - `ExecStart=/bin/sh -c 'exec "$${LCDMONITOR_VENV}/bin/python" -m src.main --config "$${LCDMONITOR_CONFIG}" --exec-driver systemd-system'`
+  - `ExecStart=/bin/sh -c 'exec "$${LCDMONITOR_VENV}/bin/python" -m src.main --config "$${LCDMONITOR_CONFIG}" --exec-driver shell'`
+  - Pair root-requiring commands with restrictive sudoers rules (e.g., `lcdmon ALL=(root) NOPASSWD:/sbin/shutdown,/sbin/reboot`) so `sudo -n` succeeds without prompting.
 
 ## Serial permissions
 

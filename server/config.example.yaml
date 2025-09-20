@@ -48,10 +48,10 @@ sensors:
 commands:
   - id: "1"
     label: Shutdown
-    exec: "sudo shutdown -h now"
+    exec: "sudo -n shutdown -h now"
   - id: "2"
     label: Reboot
-    exec: "sudo shutdown -r now"
+    exec: "sudo -n shutdown -r now"
   - id: "3"
     label: Command 3
     exec: "/usr/bin/echo example"
