@@ -84,6 +84,15 @@ else
   log "Env file already exists at ${ENV_FILE}; leaving untouched"
 fi
 
+if id -u "${SERVICE_USER}" >/dev/null 2>&1 && getent group "${SERVICE_GROUP}" >/dev/null 2>&1; then
+  if [[ -e "${CONFIG_PATH}" ]]; then
+    chown "${SERVICE_USER}:${SERVICE_GROUP}" "${CONFIG_PATH}"
+    log "Updated ownership for ${CONFIG_PATH} to ${SERVICE_USER}:${SERVICE_GROUP}"
+  fi
+else
+  log "Skipped config ownership update (user or group missing); adjust permissions manually if needed"
+fi
+
 tmp_unit=$(mktemp)
 trap 'rm -f "${tmp_unit}"' EXIT
 

@@ -11,7 +11,7 @@ This guide explains how to run the Python server as a supervised systemd service
 ## Prerequisites
 
 - A working checkout under a stable path (e.g., `/opt/lcdmonitor` for production or your home directory for dev).
-- Python 3.12 + virtual environment with project dependencies installed (see `make setup`).
+- Python 3.12 + virtual environment with project dependencies installed (e.g., `cd server && uv sync` during development or `pip install /opt/lcdmonitor/server` inside the production venv).
 - Serial permissions: the service user must be in the serial group (often `dialout` on Debian/Ubuntu, `uucp` on Arch, etc.).
 
 ## User Service (development)
@@ -34,7 +34,7 @@ This guide explains how to run the Python server as a supervised systemd service
   - `sudo mkdir -p /opt/lcdmonitor /etc/lcdmonitor`
   - `sudo chown -R lcdmon:dialout /opt/lcdmonitor /etc/lcdmonitor`
 - Install app + venv under `/opt/lcdmonitor` (or your deployment tooling). Example:
-  - Create venv, install deps, and copy the repo to `/opt/lcdmonitor`; the bundled unit assumes `/opt/lcdmonitor/server` contains the Python package (`src`).
+  - Create venv, install deps (`pip install /opt/lcdmonitor/server`), and copy the repo to `/opt/lcdmonitor`; the bundled unit assumes `/opt/lcdmonitor/server` contains the Python package (`src`).
 - Configuration:
   - Create `/etc/lcdmonitor/config.yaml` (based on `server/config.example.yaml`).
   - Create `/etc/default/lcdmonitor` with:
@@ -42,7 +42,7 @@ This guide explains how to run the Python server as a supervised systemd service
     - `LCDMONITOR_CONFIG=/etc/lcdmonitor/config.yaml`
 - Install system unit (two options):
   - Manual: `sudo cp infra/systemd/lcdmonitor.system.service /etc/systemd/system/lcdmonitor.service`, edit `User=`, `Group=`, `EnvironmentFile=`, then `sudo systemctl daemon-reload && sudo systemctl enable --now lcdmonitor`.
-  - Automated: `sudo make service-system-install SERVICE_USER=lcdmon SERVICE_GROUP=dialout INSTALL_ROOT=/opt/lcdmonitor CONFIG_PATH=/etc/lcdmonitor/config.yaml ENV_FILE=/etc/default/lcdmonitor` rsyncs the current checkout into `${INSTALL_ROOT}` (set `COPY_REPO=0` to skip; falls back to `tar` without deletion if `rsync` is missing), seeds `/etc/default/lcdmonitor`, copies the adjusted unit into place, reloads systemd, and enables the service (unless `ENABLE_SERVICE=0`). The helper expects the service user/group to exist and the virtualenv at `${INSTALL_ROOT}/.venv` to contain the dependencies.
+  - Automated: `sudo make service-system-install SERVICE_USER=lcdmon SERVICE_GROUP=dialout INSTALL_ROOT=/opt/lcdmonitor CONFIG_PATH=/etc/lcdmonitor/config.yaml ENV_FILE=/etc/default/lcdmonitor` rsyncs the current checkout into `${INSTALL_ROOT}` (set `COPY_REPO=0` to skip; falls back to `tar` without deletion if `rsync` is missing), seeds `/etc/default/lcdmonitor`, copies the adjusted unit into place, reloads systemd, ensures the config file is owned by the service account, and enables the service (unless `ENABLE_SERVICE=0`). The helper expects the service user/group to exist and the virtualenv at `${INSTALL_ROOT}/.venv` to contain the dependencies.
 - Logs:
   - `sudo journalctl -u lcdmonitor -f`
 
@@ -54,7 +54,7 @@ This guide explains how to run the Python server as a supervised systemd service
   - `systemd-system`: transient units via `systemd-run` (system manager).
   - `shell`: `/bin/sh -lc "<exec>"` (for development only; less safe).
 - Example ExecStart for system service (via env file):
-  - `ExecStart=${LCDMONITOR_VENV}/bin/python -m src.main --config ${LCDMONITOR_CONFIG} --exec-driver systemd-system`
+  - `ExecStart=/bin/sh -c 'exec "$${LCDMONITOR_VENV}/bin/python" -m src.main --config "$${LCDMONITOR_CONFIG}" --exec-driver systemd-system'`
 
 ## Serial permissions
 

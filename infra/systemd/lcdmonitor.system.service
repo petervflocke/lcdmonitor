@@ -10,7 +10,8 @@ User=lcdmon
 Group=dialout
 WorkingDirectory=/opt/lcdmonitor/server
 EnvironmentFile=/etc/default/lcdmonitor
-ExecStart=${LCDMONITOR_VENV}/bin/python -m src.main --config ${LCDMONITOR_CONFIG} --exec-driver systemd-system
+# Use a shell wrapper so the EnvironmentFile variables expand correctly
+ExecStart=/bin/sh -c 'exec "$${LCDMONITOR_VENV}/bin/python" -m src.main --config "$${LCDMONITOR_CONFIG}" --exec-driver systemd-system'
 Restart=on-failure
 RestartSec=5
 

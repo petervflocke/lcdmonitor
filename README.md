@@ -56,14 +56,14 @@ Systemd units live in `infra/systemd/` and are documented in detail in `docs/dep
   Prerequisites before installation:
   1. Create the service user and add it to the serial group (e.g., `sudo useradd -r -s /usr/sbin/nologin -G dialout lcdmon`).
   2. Decide on an install root (`INSTALL_ROOT`, default `/opt/lcdmonitor`).
-  3. Prepare the Python virtualenv at `${INSTALL_ROOT}/.venv` with runtime and dev deps (`make setup` inside the repo). If the virtualenv isn't ready yet, run the installer with `ENABLE_SERVICE=0` so it won't start the daemon until you finish provisioning.
+  3. Prepare the Python virtualenv at `${INSTALL_ROOT}/.venv` with runtime deps (`pip install /opt/lcdmonitor/server`) or run `make setup` locally and copy the environment. If the virtualenv isn't ready yet, run the installer with `ENABLE_SERVICE=0` so it won't start the daemon until you finish provisioning.
 
   Automated install (overrides optional):
   ```bash
   sudo make service-system-install SERVICE_USER=lcdmon SERVICE_GROUP=dialout INSTALL_ROOT=/opt/lcdmonitor \
     CONFIG_PATH=/etc/lcdmonitor/config.yaml ENV_FILE=/etc/default/lcdmonitor
   ```
-  Run this from a clean checkout on the server. The target rsyncs the current repo into `${INSTALL_ROOT}` (set `COPY_REPO=0` to skip; falls back to `tar` if `rsync` is unavailable), seeds `/etc/default/lcdmonitor`, copies the hardened unit into `/etc/systemd/system/lcdmonitor.service`, reloads systemd, and enables the service (unless `ENABLE_SERVICE=0`). Command execution stays disabled by default; add `--allow-exec --exec-driver systemd-system` to `ExecStart` once you have a whitelist in the config.
+  Run this from a clean checkout on the server. The target rsyncs the current repo into `${INSTALL_ROOT}` (set `COPY_REPO=0` to skip; falls back to `tar` if `rsync` is unavailable), seeds `/etc/default/lcdmonitor`, copies the hardened unit into `/etc/systemd/system/lcdmonitor.service`, adjusts ownership of `/etc/lcdmonitor/config.yaml`, reloads systemd, and enables the service (unless `ENABLE_SERVICE=0`). Command execution stays disabled by default; add `--allow-exec --exec-driver systemd-system` to `ExecStart` once you have a whitelist in the config.
 
 Make helpers print the same instructions for quick reference:
 ```bash
