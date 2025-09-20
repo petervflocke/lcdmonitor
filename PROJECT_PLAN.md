@@ -1,15 +1,3 @@
-## Status snapshot
-
-- [x] Phase 0: Setup & Environment
-- [x] Phase 1: Arduino Proof of Concept
-- [x] Phase 2: Arduino Input Handling
-- [x] Phase 3: Server Mockup
-- [x] Phase 4: Arduino Serial Integration
-- [x] Phase 5: Server Sensor Reader
-- [x] Phase 6: Commands UI & Packaging (logging only)
-- [ ] Phase 7: Hardening & Docs
-- [ ] Phase 8 (Optional): Heartbeat Controller (LED on D5)
-
 ### Phase 0: Setup & Environment
 
 - Scaffold monorepo with `/arduino` and `/server` directories.
@@ -139,7 +127,7 @@
 - ✅ Hardened systemd deployment: default exec driver uses shell + `sudo -n`, service update target added, pip cache prepared, and documentation refreshed. Systemd unit keeps `NoNewPrivileges=no` to allow scoped sudo while other hardening flags stay in place.
 - ✅ Arduino resiliency: command view now tracks serial link loss, auto-returns to telemetry on recovery, and shows an animated waiting indicator during outages.
 - ✅ Python serial resiliency: daemon retries opening the serial port with exponential backoff (5s → 30s capped) and state-aware logging to avoid systemd churn.
-- ☐ Add structured logging + rate-limited error handling in Python daemon (especially for serial retries).
+- ☐ Add structured logging + rate-limited error handling in Python daemon (beyond the initial serial backoff).
 - ☐ Expand `/docs` with troubleshooting for hardware disconnects and sudo configuration examples.
 - ☐ Implement monitoring and metrics for Python daemon (OpenTelemetry optional).
 - ☐ Finalize ADRs for architecture choices.

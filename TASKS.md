@@ -51,8 +51,8 @@
 - [x] Server: on `SELECT <id>`, log `selected id=<id> label=<label>` (no execution).
 - [x] Config: define `commands: [{id, label}]` and update `server/config.example.yaml`.
 - [x] Tests: unit tests for commands frame assembly and select logging handler.
- - [x] Docs: add ADR/update for commands protocol specifics.
- - [x] Arduino (next subphase): add Commands mode UI (cursor, scroll) and `REQ COMMANDS` on enter.
+- [x] Docs: add ADR/update for commands protocol specifics.
+- [x] Arduino (next subphase): add Commands mode UI (cursor, scroll) and `REQ COMMANDS` on enter.
 
 ### Phase 6.4: Service Packaging (System mode)
 
@@ -64,6 +64,7 @@
 ### Phase 7: Hardening & Docs
 
 - [x] Arduino: recover from serial outages in any mode and show animated “Waiting for data …” indicator.
-- [ ] Python: add structured logging + retry backoff for serial init failures.
+- [ ] Python: adopt structured logging (e.g., JSON adapters) for daemon events.
+- [x] Python: add retry backoff for serial init failures so the service can start before hardware is connected.
 - [ ] Docs: add troubleshooting section covering serial loss recovery and sudo configuration examples.
 - [ ] Instrument daemon with metrics (OpenTelemetry optional) and document monitoring hooks.
