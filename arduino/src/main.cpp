@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <LiquidCrystal.h>
+#include <stdio.h>
 #include "ScrollBuffer.h"
 #include "RotaryEncoder.h"
 
@@ -18,6 +19,7 @@ int16_t scroll = 0;
 // --- Modes ---
 enum class UIMode : uint8_t { Telemetry = 0, CommandsWaiting = 1, Commands = 2 };
 static UIMode mode = UIMode::Telemetry;
+static UIMode requestedMode = UIMode::Telemetry;  // user’s desired mode
 
 // --- Commands list state ---
 static const uint8_t CMD_MAX = 12;  // max commands kept (fits our frame capacity)
@@ -34,6 +36,8 @@ static int16_t windowStart = 0;     // top-most visible item index in commands v
 static const unsigned long FRAME_TIMEOUT_MS = 10000;  // 10s without a new frame -> waiting
 static unsigned long lastFrameMs = 0;
 static bool haveData = false;
+static uint8_t waitAnim = 0;
+static unsigned long lastAnimMs = 0;
 
 // --- Button handling (debounced, long/double press) ---
 constexpr uint16_t BTN_DEBOUNCE_MS = 20;
@@ -111,11 +115,13 @@ static void commitFrameIfAny() {
   bool isCommands = (strncmp(frameLines[0], "COMMANDS v1", 11) == 0);
   if (isCommands) {
     applyCommandsFrame();
-    mode = UIMode::Commands;  // finished waiting
+    requestedMode = UIMode::Commands;
+    mode = UIMode::Commands;
   } else {
     applyTelemetryFrame();
-    if (mode == UIMode::Telemetry) {
-      // keep mode
+    if (requestedMode == UIMode::Telemetry) {
+      mode = UIMode::Telemetry;
+      scroll = 0;
     }
   }
   frameCount = 0;
@@ -123,6 +129,8 @@ static void commitFrameIfAny() {
   // Update watchdog on completed frame
   haveData = true;
   lastFrameMs = millis();
+  waitAnim = 0;
+  lastAnimMs = lastFrameMs;
 }
 
 static void render();
@@ -168,6 +176,19 @@ static void printPadded(const char* s, uint8_t width) {
 
 static void render() {
   lcd.clear();
+  if (!haveData) {
+    static const char* anim = "|/-\\";
+    lcd.setCursor(0, 0);
+    char msg[21];
+    snprintf(msg, sizeof(msg), "Waiting for data %c", anim[waitAnim % 4]);
+    printPadded(msg, ScrollBuffer::kWidth);
+    for (uint8_t row = 1; row < 4; ++row) {
+      lcd.setCursor(0, row);
+      printPadded("", ScrollBuffer::kWidth);
+    }
+    return;
+  }
+
   if (mode == UIMode::Telemetry) {
     char line[ScrollBuffer::kWidth + 1];
     for (uint8_t row = 0; row < 4; ++row) {
@@ -224,6 +245,9 @@ void setup() {
     buffer.clear();
     buffer.push("Waiting for data...");
     mode = UIMode::Telemetry;
+    requestedMode = UIMode::Telemetry;
+    waitAnim = 0;
+    lastAnimMs = millis();
     render();
     Serial.println("Starting up");
 
@@ -264,14 +288,26 @@ void loop() {
         }
     }
 
-    // Watchdog: if no complete frame arrived within timeout, go back to waiting
+    // Watchdog & waiting animation
     unsigned long now = millis();
-    if (haveData && (now - lastFrameMs) > FRAME_TIMEOUT_MS) {
-        haveData = false;
-        scroll = 0;
-        buffer.clear();
-        buffer.push("Waiting for data...");
-        render();
+    if (haveData) {
+        if ((now - lastFrameMs) > FRAME_TIMEOUT_MS) {
+            haveData = false;
+            mode = UIMode::Telemetry;
+            requestedMode = UIMode::Telemetry;
+            commandsCount = 0;
+            buffer.clear();
+            buffer.push("Waiting for data...");
+            waitAnim = 0;
+            lastAnimMs = now;
+            render();
+        }
+    } else {
+        if ((now - lastAnimMs) >= 250) {
+            waitAnim = (waitAnim + 1) & 0x03;
+            lastAnimMs = now;
+            render();
+        }
     }
 
     // Button handling: debounce + long/double press
@@ -293,6 +329,7 @@ void loop() {
                     if (mode == UIMode::Telemetry) {
                         // Enter commands: request list and show waiting
                         mode = UIMode::CommandsWaiting;
+                        requestedMode = UIMode::Commands;
                         cursorIndex = 0;
                         windowStart = 0;
                         render();
@@ -300,6 +337,7 @@ void loop() {
                     } else {
                         // Exit to telemetry and reset scroll to top
                         mode = UIMode::Telemetry;
+                        requestedMode = UIMode::Telemetry;
                         scroll = 0;
                         render();
                     }
@@ -311,6 +349,7 @@ void loop() {
                             if (cursorIndex == commandsCount) {
                                 // Exit entry selected
                                 mode = UIMode::Telemetry;
+                                requestedMode = UIMode::Telemetry;
                                 scroll = 0;
                                 render();
                             } else if (cursorIndex >= 0 && cursorIndex < commandsCount) {

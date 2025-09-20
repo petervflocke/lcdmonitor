@@ -103,6 +103,7 @@ service-system-notes:
 	@echo "2) Create runtime dirs: sudo mkdir -p /opt/lcdmonitor /etc/lcdmonitor"
 	@echo "   and chown them to the service account: sudo chown -R lcdmon:dialout /opt/lcdmonitor /etc/lcdmonitor"
 	@echo "3) Deploy repo under /opt/lcdmonitor and create virtualenv /opt/lcdmonitor/.venv (run make setup)."
+	@echo "   Use sudo -H -u lcdmon when invoking pip so the cache is writable (e.g., sudo -H -u lcdmon /opt/lcdmonitor/.venv/bin/pip install --upgrade /opt/lcdmonitor/server)."
 	@echo "4) Create /etc/default/lcdmonitor with:"
 	@echo "   LCDMONITOR_VENV=/opt/lcdmonitor/.venv"
 	@echo "   LCDMONITOR_CONFIG=/etc/lcdmonitor/config.yaml"
@@ -141,7 +142,7 @@ service-system-update:
 		INSTALL_ROOT=$(INSTALL_ROOT) CONFIG_PATH=$(CONFIG_PATH) \
 		ENV_FILE=$(ENV_FILE) SYSTEMD_UNIT=$(SYSTEMD_UNIT) \
 		SYSTEMD_DIR=$(SYSTEMD_DIR) ENABLE_SERVICE=0
-	$(SUDO) -u $(SERVICE_USER) $(INSTALL_ROOT)/.venv/bin/pip install --upgrade $(INSTALL_ROOT)/server
+	$(SUDO) -H -u $(SERVICE_USER) $(INSTALL_ROOT)/.venv/bin/pip install --upgrade $(INSTALL_ROOT)/server
 	$(SUDO) systemctl daemon-reload
 	$(SUDO) systemctl restart $(SYSTEMD_UNIT)
 	$(SUDO) systemctl status $(SYSTEMD_UNIT) --no-pager

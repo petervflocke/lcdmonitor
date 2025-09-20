@@ -89,6 +89,13 @@ if id -u "${SERVICE_USER}" >/dev/null 2>&1 && getent group "${SERVICE_GROUP}" >/
     chown "${SERVICE_USER}:${SERVICE_GROUP}" "${CONFIG_PATH}"
     log "Updated ownership for ${CONFIG_PATH} to ${SERVICE_USER}:${SERVICE_GROUP}"
   fi
+  service_home=$(getent passwd "${SERVICE_USER}" | cut -d: -f6)
+  if [[ -n "${service_home}" ]]; then
+    install -d -m 0750 -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" "${service_home}/.cache/pip"
+    log "Ensured pip cache directory at ${service_home}/.cache/pip"
+  else
+    log "WARNING: could not determine home directory for ${SERVICE_USER}; pip cache not pre-created"
+  fi
 else
   log "Skipped config ownership update (user or group missing); adjust permissions manually if needed"
 fi

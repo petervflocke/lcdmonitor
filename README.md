@@ -72,7 +72,8 @@ Systemd units live in `infra/systemd/` and are documented in detail in `docs/dep
   ```
   This reruns the installer with `ENABLE_SERVICE=0`, upgrades the installed Python package in the venv, then restarts the service and prints its status.
 
-  Root-level commands should use `sudo -n` and you must grant the service user explicit passwordless sudo rules (e.g., `lcdmon ALL=(root) NOPASSWD:/sbin/shutdown,/sbin/reboot`) to avoid prompts.
+  Root-level commands should use `sudo -n` and you must grant the service user explicit passwordless sudo rules (e.g., `lcdmon ALL=(root) NOPASSWD:/sbin/shutdown,/sbin/reboot`) to avoid prompts. The bundled system unit sets `NoNewPrivileges=no` so these sudo calls can elevate; review and tighten other hardening knobs as needed for your environment.
+  The installer also prepares `/home/lcdmon/.cache/pip` and all pip invocations use `sudo -H -u lcdmon …` so virtualenv upgrades do not warn about unwritable caches.
 
 Make helpers print the same instructions for quick reference:
 ```bash

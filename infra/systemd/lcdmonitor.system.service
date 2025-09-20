@@ -16,7 +16,8 @@ Restart=on-failure
 RestartSec=5
 
 # Hardening (tune as needed)
-NoNewPrivileges=yes
+# NoNewPrivileges must remain disabled so sudo can elevate for shell execs
+NoNewPrivileges=no
 PrivateTmp=yes
 ProtectSystem=full
 ProtectHome=yes
