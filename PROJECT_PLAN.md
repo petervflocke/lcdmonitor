@@ -110,6 +110,7 @@
 - Rotary in Commands: moves selection; window auto-scrolls to keep cursor visible. Selection index range is [0..N], where N is the `Exit` entry.
 - Double press in Commands: send the selected command (see protocol). Selecting `Exit` returns to Telemetry (no message) and resets Telemetry scroll to top.
 - Data structures: keep telemetry buffer unchanged; add a separate commands array (id + 19-char label), plus `cursor_index` and `window_start`.
+- Connection monitoring: Arduino maintains a watchdog for telemetry frames in both modes; on timeout it switches to an animated "Waiting for data…" screen and returns to Telemetry once frames resume.
 
 6.2 Server protocol (logging only; no execution)
 
@@ -135,10 +136,12 @@
 
 ### Phase 7: Hardening & Docs
 
-- Add error handling, logging, and recovery in Arduino and Python code.
-- Expand `/docs` with usage instructions, wiring diagrams, config examples.
-- Implement monitoring and metrics for Python daemon (OpenTelemetry optional).
-- Finalize ADRs for architecture choices.
+- ✅ Hardened systemd deployment: default exec driver uses shell + `sudo -n`, service update target added, pip cache prepared, and documentation refreshed. Systemd unit keeps `NoNewPrivileges=no` to allow scoped sudo while other hardening flags stay in place.
+- ✅ Arduino resiliency: command view now tracks serial link loss, auto-returns to telemetry on recovery, and shows an animated waiting indicator during outages.
+- ☐ Add structured logging + rate-limited error handling in Python daemon (especially for serial retries).
+- ☐ Expand `/docs` with troubleshooting for hardware disconnects and sudo configuration examples.
+- ☐ Implement monitoring and metrics for Python daemon (OpenTelemetry optional).
+- ☐ Finalize ADRs for architecture choices.
 
 ### Phase 8 (Optional): Heartbeat Controller (LED on D5)
 

@@ -39,6 +39,7 @@
 - `make fmt`, `make lint`, `make type`, `make test`, `make e2e`
 - `make ci` runs all of the above
 - Arduino tasks scripted in Makefile for reproducibility
+- Systemd helpers: `sudo make service-system-install …` for initial deployment and `sudo make service-system-update …` for redeployments (invokes pip via `sudo -H -u <service user>` to keep caches writable).
 
 ## Git and PR policy
 
@@ -92,6 +93,7 @@
 - /arduino/src/main.cpp entrypoint sketch with Hello World.
 - /server/src/main.py entrypoint Python daemon.
 - /server/config.example.yaml sample configuration file.
+- /infra/systemd/lcdmonitor.system.service system-mode unit (shell exec driver default, `NoNewPrivileges=no` to allow scoped sudo commands).
 
 ## Review checklist for PRs
 

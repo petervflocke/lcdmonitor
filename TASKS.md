@@ -58,7 +58,11 @@
 - [x] Provide a systemd system service unit (root-managed) with hardening defaults.
 - [x] Add Makefile targets with install instructions for system mode.
 - [x] Document deployment steps (service user, dialout group, venv in /opt, /etc/default env file).
+- [x] Add `service-system-update` target, pip cache prep, and sudo documentation; default exec driver uses shell with `sudo -n` guidance.
 
 ### Phase 7: Hardening & Docs
 
-- 
+- [x] Arduino: recover from serial outages in any mode and show animated “Waiting for data …” indicator.
+- [ ] Python: add structured logging + retry backoff for serial init failures.
+- [ ] Docs: add troubleshooting section covering serial loss recovery and sudo configuration examples.
+- [ ] Instrument daemon with metrics (OpenTelemetry optional) and document monitoring hooks.
