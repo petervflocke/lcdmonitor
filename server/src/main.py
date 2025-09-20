@@ -171,6 +171,7 @@ def _sensor_text(s: SensorConfig) -> Optional[str]:
 
 def _collect_lines(cfg: AppConfig) -> List[str]:
     lines: List[str] = []
+    limit = cfg.max_lines - 1 if cfg.max_lines > 1 else 1
     for s in cfg.sensors:
         if not s.enabled:
             continue
@@ -197,7 +198,7 @@ def _collect_lines(cfg: AppConfig) -> List[str]:
             text = f"{s.name} {text}"
         # Truncate to LCD width here already
         lines.append(text[:20])
-        if len(lines) >= cfg.max_lines:
+        if len(lines) >= limit:
             break
     return lines
 
@@ -216,14 +217,33 @@ def main(argv: list[str]) -> int:
 
     if args.dry_run:
         lines = _collect_lines(cfg)
+        lines.insert(0, f"META interval={cfg.interval:.3f}")
         for ln in lines:
             print(ln)
         return 0
 
-    try:
-        ser = serial.Serial(cfg.serial.port, cfg.serial.baud, timeout=0.2)
-    except Exception as e:
-        log.error("Failed to open serial port %s: %s", cfg.serial.port, e)
+    backoff = 5.0
+    ser: serial.Serial | None = None
+    warned = False
+    while ser is None:
+        try:
+            ser = serial.Serial(cfg.serial.port, cfg.serial.baud, timeout=0.2)
+            if warned:
+                log.info("Opened serial port %s", cfg.serial.port)
+            break
+        except Exception as e:
+            if not warned:
+                log.warning("Serial port unavailable (%s): %s", cfg.serial.port, e)
+                warned = True
+            else:
+                log.debug("Serial port still unavailable: %s", e)
+            try:
+                time.sleep(backoff)
+            except KeyboardInterrupt:
+                return 3
+            backoff = min(backoff * 2.0, 30.0)
+
+    if ser is None:
         return 3
 
     try:
@@ -245,6 +265,7 @@ def main(argv: list[str]) -> int:
             reader_thread.start()
         while True:
             lines = _collect_lines(cfg)
+            lines.insert(0, f"META interval={cfg.interval:.3f}")
             payload = Outbound(lines=lines).encode()
             ser.write(payload)
             ser.flush()

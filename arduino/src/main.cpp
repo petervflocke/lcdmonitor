@@ -1,5 +1,7 @@
 #include <Arduino.h>
 #include <LiquidCrystal.h>
+#include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
 #include "ScrollBuffer.h"
 #include "RotaryEncoder.h"
@@ -33,7 +35,11 @@ static int16_t cursorIndex = 0;     // selection within [0..commandsCount] where
 static int16_t windowStart = 0;     // top-most visible item index in commands view
 
 // --- Frame watchdog ---
-static const unsigned long FRAME_TIMEOUT_MS = 10000;  // 10s without a new frame -> waiting
+static const unsigned long FRAME_TIMEOUT_DEFAULT_MS = 10000;  // fallback watchdog
+static const unsigned long FRAME_TIMEOUT_MIN_MS = 5000;
+static const unsigned long FRAME_TIMEOUT_MAX_MS = 60000;
+static unsigned long frameTimeoutMs = FRAME_TIMEOUT_DEFAULT_MS;
+static unsigned long displayTimeoutMs = 0;
 static unsigned long lastFrameMs = 0;
 static bool haveData = false;
 static uint8_t waitAnim = 0;
@@ -113,6 +119,42 @@ static void applyCommandsFrame() {
 static void commitFrameIfAny() {
   if (frameCount == 0) return;
   bool isCommands = (strncmp(frameLines[0], "COMMANDS v1", 11) == 0);
+  if (!isCommands && strncmp(frameLines[0], "META ", 5) == 0) {
+    const char* meta = frameLines[0];
+    const char* intervalPtr = strstr(meta, "interval=");
+    if (intervalPtr != nullptr) {
+      intervalPtr += 9;  // skip "interval="
+      char* endPtr = nullptr;
+      double sec = strtod(intervalPtr, &endPtr);
+      if (sec > 0.0) {
+        unsigned long candidate = static_cast<unsigned long>(sec * 3000.0);  // 3x interval
+        if (candidate < FRAME_TIMEOUT_MIN_MS) candidate = FRAME_TIMEOUT_MIN_MS;
+        if (candidate > FRAME_TIMEOUT_MAX_MS) candidate = FRAME_TIMEOUT_MAX_MS;
+        frameTimeoutMs = candidate;
+        displayTimeoutMs = candidate;
+      }
+    }
+    // remove META line before applying telemetry frame
+    if (frameCount > 1) {
+      for (uint8_t i = 1; i < frameCount; ++i) {
+        strncpy(frameLines[i - 1], frameLines[i], ScrollBuffer::kWidth + 1);
+        frameLines[i - 1][ScrollBuffer::kWidth] = '\0';
+      }
+      --frameCount;
+    } else {
+      frameCount = 0;
+    }
+  }
+
+  if (frameCount == 0 && !isCommands) {
+    // Only metadata present; treat as keepalive
+    haveData = true;
+    lastFrameMs = millis();
+    waitAnim = 0;
+    lastAnimMs = lastFrameMs;
+    return;
+  }
+
   if (isCommands) {
     applyCommandsFrame();
     requestedMode = UIMode::Commands;
@@ -182,7 +224,16 @@ static void render() {
     char msg[21];
     snprintf(msg, sizeof(msg), "Waiting for data %c", anim[waitAnim % 4]);
     printPadded(msg, ScrollBuffer::kWidth);
-    for (uint8_t row = 1; row < 4; ++row) {
+    lcd.setCursor(0, 1);
+    if (displayTimeoutMs == 0) {
+      printPadded("Timeout: --", ScrollBuffer::kWidth);
+    } else {
+      unsigned long seconds = (displayTimeoutMs + 500) / 1000;
+      char timeoutLine[21];
+      snprintf(timeoutLine, sizeof(timeoutLine), "Timeout: %lus", seconds);
+      printPadded(timeoutLine, ScrollBuffer::kWidth);
+    }
+    for (uint8_t row = 2; row < 4; ++row) {
       lcd.setCursor(0, row);
       printPadded("", ScrollBuffer::kWidth);
     }
@@ -246,6 +297,8 @@ void setup() {
     buffer.push("Waiting for data...");
     mode = UIMode::Telemetry;
     requestedMode = UIMode::Telemetry;
+    frameTimeoutMs = FRAME_TIMEOUT_DEFAULT_MS;
+    displayTimeoutMs = 0;
     waitAnim = 0;
     lastAnimMs = millis();
     render();
@@ -291,7 +344,7 @@ void loop() {
     // Watchdog & waiting animation
     unsigned long now = millis();
     if (haveData) {
-        if ((now - lastFrameMs) > FRAME_TIMEOUT_MS) {
+        if ((now - lastFrameMs) > frameTimeoutMs) {
             haveData = false;
             mode = UIMode::Telemetry;
             requestedMode = UIMode::Telemetry;

@@ -36,6 +36,7 @@ Hardware upload/monitor commands are available via `make arduino-upload` and `ma
   make server-run
   ```
   The config is driven by `server/config.example.yaml`; copy and edit it for your host. Enable command execution explicitly with `--allow-exec` and pick an execution driver (`shell` is the default, `systemd-user` and `systemd-system` remain available).
+  Each telemetry frame starts with a metadata line (`META interval=<seconds>`) so the Arduino can scale its watchdog before rendering the remaining lines; the sketch hides the metadata from the LCD.
 
 ## Systemd deployment
 Systemd units live in `infra/systemd/` and are documented in detail in `docs/deployment-systemd.md`. In short:

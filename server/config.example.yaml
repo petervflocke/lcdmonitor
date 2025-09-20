@@ -1,8 +1,13 @@
-interval: 1.0
+interval: 2.0
 serial:
   port: /dev/ttyUSB0
   baud: 115200
 max_lines: 12
+# How long the server waits before retrying the serial port if it's unplugged (seconds)
+# (Currently informational; the daemon uses built-in defaults.)
+# serial_retry_backoff:
+#   initial: 5.0
+#   max: 30.0
 
 # Order matters; first entries appear first on LCD
 sensors:

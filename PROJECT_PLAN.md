@@ -97,7 +97,7 @@
   Resolved decisions
 
     - PyYAML is added for config parsing; maintain strict mypy coverage.
-    - Default layout emits up to 12 telemetry lines with Arduino-side scrolling.
+    - Default layout emits a metadata line plus up to 11 telemetry lines; the metadata (`META interval=<seconds>`) lets Arduino scale its watchdog while the remaining lines feed the scroll buffer.
     - GPU support prefers `pynvml` with an `nvidia-smi` fallback when NVML is unavailable.
 
 ### Phase 6: Commands UI & Execution (multi-step)
@@ -138,6 +138,7 @@
 
 - ✅ Hardened systemd deployment: default exec driver uses shell + `sudo -n`, service update target added, pip cache prepared, and documentation refreshed. Systemd unit keeps `NoNewPrivileges=no` to allow scoped sudo while other hardening flags stay in place.
 - ✅ Arduino resiliency: command view now tracks serial link loss, auto-returns to telemetry on recovery, and shows an animated waiting indicator during outages.
+- ✅ Python serial resiliency: daemon retries opening the serial port with exponential backoff (5s → 30s capped) and state-aware logging to avoid systemd churn.
 - ☐ Add structured logging + rate-limited error handling in Python daemon (especially for serial retries).
 - ☐ Expand `/docs` with troubleshooting for hardware disconnects and sudo configuration examples.
 - ☐ Implement monitoring and metrics for Python daemon (OpenTelemetry optional).

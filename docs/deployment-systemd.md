@@ -59,6 +59,7 @@ This guide explains how to run the Python server as a supervised systemd service
 - Example ExecStart for system service (via env file):
   - `ExecStart=/bin/sh -c 'exec "$${LCDMONITOR_VENV}/bin/python" -m src.main --config "$${LCDMONITOR_CONFIG}" --exec-driver shell'`
   - Pair root-requiring commands with restrictive sudoers rules (e.g., `lcdmon ALL=(root) NOPASSWD:/sbin/shutdown,/sbin/reboot`) so `sudo -n` succeeds without prompting.
+- Serial port handling: the daemon retries opening the port with exponential backoff (5s → 30s, capped) so you can start it before the Arduino is attached without systemd churn.
 
 ## Serial permissions
 

@@ -1,9 +1,12 @@
 # 0001: Serial line framing
 
-We start with line mode. Messages are up to 4 lines, 20 chars each, joined with `
-` and terminated with a blank line `
+We start with line mode. Messages are up to 4 lines, 20 chars each, joined with `\n` and terminated with a blank line (`\n\n`). Arduino parses until the blank line then refreshes the buffer. Later we can switch to binary framing with STX/ETX and checksum if noise becomes an issue.
 
-`. Arduino parses until blank line then refreshes buffer. Later we can switch to binary framing with STX/ETX and checksum if noise becomes an issue.
+## Telemetry frames
+
+- First line: `META interval=<seconds>` (always present). Arduino sets its watchdog to roughly `max(5s, 3 × interval)` (clamped to 60s) off this metadata so the animated “Waiting for data …” screen appears when frames stop.
+- Remaining lines: rendered telemetry content (truncated to 20 chars each). The server keeps the total line count within the LCD height plus metadata.
+- Metadata-only frames (rare) act as keepalives; Arduino updates the watchdog without touching the display buffer.
 
 Pros: trivial to debug with `pio device monitor`. Cons: less robust to stray bytes.
 
@@ -22,6 +25,7 @@ Pros: trivial to debug with `pio device monitor`. Cons: less robust to stray byt
 ### Execution model
 
 - Default: execution disabled. Run the daemon with `--allow-exec` to enable.
-- Backend: `--exec-driver=systemd|shell` (default: `systemd`).
-  - `systemd`: uses `systemd-run --user` to spawn a transient unit per selection. Output goes to journald and can be inspected with `journalctl --user -u lcdcmd-<id>-<ts>`.
-  - `shell`: runs the configured `exec` string via `/bin/sh -lc` (less safe; for development only).
+- Backend: `--exec-driver=shell|systemd-user|systemd-system` (default: `shell`).
+  - `shell`: runs the configured `exec` string via `/bin/sh -lc`. Combine with restrictive sudo rules (`sudo -n`) and hardened systemd unit settings.
+  - `systemd-user`: uses `systemd-run --user` to spawn a transient unit; requires a lingering user manager for the service account.
+  - `systemd-system`: uses the system manager; only viable if the service user has polkit/sudo rights to spawn system-level units.

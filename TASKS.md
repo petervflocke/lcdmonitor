@@ -42,6 +42,7 @@
 - [x] Add unit tests for config parsing and dry-run assembly (`server/tests`).
 - [x] Add GPU fallback via `nvidia-smi` when NVML unavailable.
 - [x] Add minimal logging (default ERROR, `--verbose` for INFO). Metrics hooks TBD.
+- [x] Prepend `META interval=<seconds>` to each telemetry frame so Arduino can scale its watchdog dynamically.
 -
 
 ### Phase 6: Commands UI & Protocol (logging only)
