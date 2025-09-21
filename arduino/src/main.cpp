@@ -9,6 +9,22 @@
 // LCD pins: RS=7, E=8, D4=9, D5=10, D6=11, D7=12
 LiquidCrystal lcd(7, 8, 9, 10, 11, 12);
 
+// LCD geometry & string sizing
+constexpr uint8_t LCD_COLS = ScrollBuffer::kWidth;
+constexpr uint8_t LCD_ROWS = 4;
+constexpr uint8_t LCD_BUFFER_LEN = LCD_COLS + 1;
+
+constexpr uint8_t CMD_ID_STORAGE = 8;                  // 7 visible chars + null
+constexpr uint8_t CMD_LABEL_VISIBLE = LCD_COLS - 1;    // reserve column 0 for cursor
+constexpr uint8_t CMD_LABEL_STORAGE = CMD_LABEL_VISIBLE + 1;
+
+constexpr char COMMANDS_HEADER[] = "COMMANDS v1";
+constexpr size_t COMMANDS_HEADER_LEN = sizeof(COMMANDS_HEADER) - 1;
+constexpr char META_PREFIX[] = "META ";
+constexpr size_t META_PREFIX_LEN = sizeof(META_PREFIX) - 1;
+constexpr char META_INTERVAL_KEY[] = "interval=";
+constexpr size_t META_INTERVAL_KEY_LEN = sizeof(META_INTERVAL_KEY) - 1;
+
 // Rotary encoder pins
 constexpr uint8_t PIN_ENC_A = 2;   // D2
 constexpr uint8_t PIN_ENC_B = 3;   // D3
@@ -22,6 +38,12 @@ static const unsigned long GREEN_PULSE_MS = 120;
 static const unsigned long RED_STALE_PULSE_MS = 50;
 static const unsigned long RED_ACK_PULSE_MS = 150;
 static const unsigned long STALE_PERIOD_MS = 1000;
+static const unsigned long STALE_THRESHOLD_MIN_MS = 500;
+static const unsigned long HEARTBEAT_MIN_INTERVAL_MS = 250;
+static const unsigned long FRAME_LOSS_MULTIPLIER = 10;
+
+constexpr unsigned long WAITING_ANIM_INTERVAL_MS = 250;
+constexpr uint8_t WAITING_ANIM_FRAMES = 4;
 
 // --- Telemetry buffer/state ---
 ScrollBuffer buffer;
@@ -33,10 +55,10 @@ static UIMode mode = UIMode::Telemetry;
 static UIMode requestedMode = UIMode::Telemetry;  // user’s desired mode
 
 // --- Commands list state ---
-static const uint8_t CMD_MAX = 12;  // max commands kept (fits our frame capacity)
+constexpr uint8_t CMD_MAX = 12;  // max commands kept (fits our frame capacity)
 struct CmdItem {
-  char id[8];          // short id, e.g., "1", "42"
-  char label[20];      // label text (will render in 19 cols)
+  char id[CMD_ID_STORAGE];           // short id, e.g., "1", "42"
+  char label[CMD_LABEL_STORAGE];     // label text (will render in CMD_LABEL_VISIBLE cols)
 };
 static CmdItem commands[CMD_MAX];
 static uint8_t commandsCount = 0;   // number of received commands (without Exit)
@@ -102,9 +124,9 @@ void encoderISR() {
 }
 
 // --- Serial frame parsing ---
-static char inLine[ScrollBuffer::kWidth + 1];
+static char inLine[LCD_BUFFER_LEN];
 static uint8_t inIdx = 0;
-static char frameLines[ScrollBuffer::kCapacity][ScrollBuffer::kWidth + 1];
+static char frameLines[ScrollBuffer::kCapacity][LCD_BUFFER_LEN];
 static uint8_t frameCount = 0;
 
 static void applyTelemetryFrame() {
@@ -115,8 +137,8 @@ static void applyTelemetryFrame() {
     buffer.push(frameLines[i]);
   }
   int16_t maxScroll = 0;
-  if (buffer.size() > 4) {
-    maxScroll = static_cast<int16_t>(buffer.size() - 4);
+  if (buffer.size() > LCD_ROWS) {
+    maxScroll = static_cast<int16_t>(buffer.size() - LCD_ROWS);
   }
   if (prevScroll < 0) prevScroll = 0;
   if (prevScroll > maxScroll) prevScroll = maxScroll;
@@ -131,7 +153,7 @@ static void applyCommandsFrame() {
     const char* ln = frameLines[i];
     // Find first space
     const char* sp = nullptr;
-    for (uint8_t j = 0; j < ScrollBuffer::kWidth && ln[j] != '\0'; ++j) {
+    for (uint8_t j = 0; j < LCD_COLS && ln[j] != '\0'; ++j) {
       if (ln[j] == ' ') { sp = &ln[j]; break; }
     }
     if (sp == nullptr) {
@@ -142,13 +164,13 @@ static void applyCommandsFrame() {
     if (idLen == 0) continue;
     uint8_t lblLen = 0;
     const char* lbl = sp + 1;
-    while (lbl[lblLen] != '\0' && lblLen < 19) { ++lblLen; }
-    // Copy id (truncate to 7)
-    uint8_t idCopy = idLen < 7 ? idLen : 7;
+    while (lbl[lblLen] != '\0' && lblLen < CMD_LABEL_VISIBLE) { ++lblLen; }
+    // Copy id (truncate to storage)
+    uint8_t idCopy = idLen < (CMD_ID_STORAGE - 1) ? idLen : (CMD_ID_STORAGE - 1);
     for (uint8_t k = 0; k < idCopy; ++k) commands[commandsCount].id[k] = ln[k];
     commands[commandsCount].id[idCopy] = '\0';
-    // Copy label (truncate to 19)
-    uint8_t labCopy = lblLen < 19 ? lblLen : 19;
+    // Copy label (truncate to visible width)
+    uint8_t labCopy = lblLen < CMD_LABEL_VISIBLE ? lblLen : CMD_LABEL_VISIBLE;
     for (uint8_t k = 0; k < labCopy; ++k) commands[commandsCount].label[k] = lbl[k];
     commands[commandsCount].label[labCopy] = '\0';
     ++commandsCount;
@@ -158,37 +180,74 @@ static void applyCommandsFrame() {
   windowStart = 0;
 }
 
+static bool parseMetaLine(const char* line) {
+  if (strncmp(line, META_PREFIX, META_PREFIX_LEN) != 0) {
+    return false;
+  }
+
+  const char* intervalPtr = strstr(line, META_INTERVAL_KEY);
+  if (intervalPtr != nullptr) {
+    intervalPtr += META_INTERVAL_KEY_LEN;
+    char* endPtr = nullptr;
+    double sec = strtod(intervalPtr, &endPtr);
+    if (sec > 0.0) {
+      unsigned long intervalMs = static_cast<unsigned long>(sec * 1000.0);
+      if (intervalMs < HEARTBEAT_MIN_INTERVAL_MS) {
+        intervalMs = HEARTBEAT_MIN_INTERVAL_MS;
+      }
+      heartbeatIntervalMs = intervalMs;
+
+      unsigned long candidate;
+      if (intervalMs > FRAME_TIMEOUT_MAX_MS / FRAME_LOSS_MULTIPLIER) {
+        candidate = FRAME_TIMEOUT_MAX_MS;
+      } else {
+        candidate = intervalMs * FRAME_LOSS_MULTIPLIER;
+      }
+      if (candidate < FRAME_TIMEOUT_MIN_MS) candidate = FRAME_TIMEOUT_MIN_MS;
+      if (candidate > FRAME_TIMEOUT_MAX_MS) candidate = FRAME_TIMEOUT_MAX_MS;
+      frameTimeoutMs = candidate;
+      displayTimeoutMs = candidate;
+    }
+  }
+  return true;
+}
+
+static void processTelemetryFrame() {
+  applyTelemetryFrame();
+  if (requestedMode == UIMode::Telemetry) {
+    mode = UIMode::Telemetry;
+    scroll = 0;
+  }
+}
+
+static void processCommandsFrame() {
+  applyCommandsFrame();
+  requestedMode = UIMode::Commands;
+  mode = UIMode::Commands;
+}
+
+static void updateWatchdog(unsigned long now, bool pulseGreen) {
+  haveData = true;
+  lastFrameMs = now;
+  waitAnim = 0;
+  lastAnimMs = now;
+  staleNextBlinkMs = now + STALE_PERIOD_MS;
+  if (pulseGreen) {
+    triggerGreenPulse(now);
+  }
+  if (redPulseUntilMs == 0) {
+    digitalWrite(PIN_LED_RED, LOW);
+  }
+}
+
 static void commitFrameIfAny() {
   if (frameCount == 0) return;
-  bool isCommands = (strncmp(frameLines[0], "COMMANDS v1", 11) == 0);
-  if (!isCommands && strncmp(frameLines[0], "META ", 5) == 0) {
-    const char* meta = frameLines[0];
-    const char* intervalPtr = strstr(meta, "interval=");
-    if (intervalPtr != nullptr) {
-      intervalPtr += 9;  // skip "interval="
-      char* endPtr = nullptr;
-      double sec = strtod(intervalPtr, &endPtr);
-      if (sec > 0.0) {
-        unsigned long intervalMs = static_cast<unsigned long>(sec * 1000.0);
-        if (intervalMs < 250) intervalMs = 250;
-        heartbeatIntervalMs = intervalMs;
-        unsigned long candidate;
-        if (intervalMs > FRAME_TIMEOUT_MAX_MS / 10) {
-          candidate = FRAME_TIMEOUT_MAX_MS;
-        } else {
-          candidate = intervalMs * 10;  // 10x interval -> loss threshold
-        }
-        if (candidate < FRAME_TIMEOUT_MIN_MS) candidate = FRAME_TIMEOUT_MIN_MS;
-        if (candidate > FRAME_TIMEOUT_MAX_MS) candidate = FRAME_TIMEOUT_MAX_MS;
-        frameTimeoutMs = candidate;
-        displayTimeoutMs = candidate;
-      }
-    }
-    // remove META line before applying telemetry frame
+
+  bool hadMeta = parseMetaLine(frameLines[0]);
+  if (hadMeta) {
     if (frameCount > 1) {
       for (uint8_t i = 1; i < frameCount; ++i) {
-        strncpy(frameLines[i - 1], frameLines[i], ScrollBuffer::kWidth + 1);
-        frameLines[i - 1][ScrollBuffer::kWidth] = '\0';
+        memcpy(frameLines[i - 1], frameLines[i], LCD_BUFFER_LEN);
       }
       --frameCount;
     } else {
@@ -196,45 +255,25 @@ static void commitFrameIfAny() {
     }
   }
 
-  if (frameCount == 0 && !isCommands) {
-    // Only metadata present; treat as keepalive
-    haveData = true;
-    lastFrameMs = millis();
-    waitAnim = 0;
-    lastAnimMs = lastFrameMs;
-    staleNextBlinkMs = lastFrameMs + STALE_PERIOD_MS;
-    triggerGreenPulse(lastFrameMs);
-    if (redPulseUntilMs == 0) {
-      digitalWrite(PIN_LED_RED, LOW);
+  unsigned long now = millis();
+
+  if (frameCount == 0) {
+    if (hadMeta) {
+      updateWatchdog(now, true);
     }
     return;
   }
 
-  if (isCommands) {
-    applyCommandsFrame();
-    requestedMode = UIMode::Commands;
-    mode = UIMode::Commands;
-  } else {
-    applyTelemetryFrame();
-    if (requestedMode == UIMode::Telemetry) {
-      mode = UIMode::Telemetry;
-      scroll = 0;
-    }
-  }
-  frameCount = 0;
+  bool isCommands = (strncmp(frameLines[0], COMMANDS_HEADER, COMMANDS_HEADER_LEN) == 0);
 
-  // Update watchdog on completed frame
-  haveData = true;
-  lastFrameMs = millis();
-  waitAnim = 0;
-  lastAnimMs = lastFrameMs;
-  staleNextBlinkMs = lastFrameMs + STALE_PERIOD_MS;
-  if (!isCommands) {
-    triggerGreenPulse(lastFrameMs);
+  if (isCommands) {
+    processCommandsFrame();
+  } else {
+    processTelemetryFrame();
   }
-  if (redPulseUntilMs == 0) {
-    digitalWrite(PIN_LED_RED, LOW);
-  }
+
+  frameCount = 0;
+  updateWatchdog(now, !isCommands);
 }
 
 static void render();
@@ -255,14 +294,13 @@ static void processSerial() {
         // Terminate current line and add to frame
         inLine[inIdx] = '\0';
         if (frameCount < ScrollBuffer::kCapacity) {
-          strncpy(frameLines[frameCount], inLine, ScrollBuffer::kWidth + 1);
-          frameLines[frameCount][ScrollBuffer::kWidth] = '\0';
+          strncpy(frameLines[frameCount], inLine, LCD_BUFFER_LEN);
           ++frameCount;
         }
         inIdx = 0;
       }
     } else {
-      if (inIdx < ScrollBuffer::kWidth) {
+      if (inIdx < LCD_COLS) {
         inLine[inIdx++] = c;
       }
     }
@@ -270,7 +308,7 @@ static void processSerial() {
 }
 
 static void printPadded(const char* s, uint8_t width) {
-  char padded[ScrollBuffer::kWidth + 1];
+  char padded[LCD_BUFFER_LEN];
   uint8_t i = 0;
   for (; i < width && s[i] != '\0'; ++i) padded[i] = s[i];
   for (; i < width; ++i) padded[i] = ' ';
@@ -283,58 +321,59 @@ static void render() {
   if (!haveData) {
     static const char* anim = "|/-\\";
     lcd.setCursor(0, 0);
-    char msg[21];
-    snprintf(msg, sizeof(msg), "Waiting for data %c", anim[waitAnim % 4]);
-    printPadded(msg, ScrollBuffer::kWidth);
+    char msg[LCD_BUFFER_LEN];
+    snprintf(msg, sizeof(msg), "Waiting for data %c", anim[waitAnim % WAITING_ANIM_FRAMES]);
+    printPadded(msg, LCD_COLS);
     lcd.setCursor(0, 1);
     if (displayTimeoutMs == 0) {
-      printPadded("Timeout: --", ScrollBuffer::kWidth);
+      printPadded("Timeout: --", LCD_COLS);
     } else {
       unsigned long seconds = (displayTimeoutMs + 500) / 1000;
-      char timeoutLine[21];
+      char timeoutLine[LCD_BUFFER_LEN];
       snprintf(timeoutLine, sizeof(timeoutLine), "Timeout: %lus", seconds);
-      printPadded(timeoutLine, ScrollBuffer::kWidth);
+      printPadded(timeoutLine, LCD_COLS);
     }
-    for (uint8_t row = 2; row < 4; ++row) {
+    for (uint8_t row = 2; row < LCD_ROWS; ++row) {
       lcd.setCursor(0, row);
-      printPadded("", ScrollBuffer::kWidth);
+      printPadded("", LCD_COLS);
     }
     return;
   }
 
   if (mode == UIMode::Telemetry) {
-    char line[ScrollBuffer::kWidth + 1];
-    for (uint8_t row = 0; row < 4; ++row) {
+    char line[LCD_BUFFER_LEN];
+    for (uint8_t row = 0; row < LCD_ROWS; ++row) {
       uint16_t idx = scroll + row;
       buffer.get(idx, line);
       lcd.setCursor(0, row);
-      printPadded(line, ScrollBuffer::kWidth);
+      printPadded(line, LCD_COLS);
     }
   } else if (mode == UIMode::CommandsWaiting) {
     lcd.setCursor(0, 0);
-    printPadded("> Loading commands...", ScrollBuffer::kWidth);
+    printPadded("> Loading commands...", LCD_COLS);
   } else {  // Commands
     // Total entries = commandsCount + 1 (Exit)
     int16_t total = static_cast<int16_t>(commandsCount) + 1;
-    for (uint8_t row = 0; row < 4; ++row) {
+    for (uint8_t row = 0; row < LCD_ROWS; ++row) {
       int16_t idx = windowStart + row;
       lcd.setCursor(0, row);
-      char label[20];
+      char label[CMD_LABEL_STORAGE];
       if (idx < 0 || idx >= total) {
-        printPadded("", ScrollBuffer::kWidth);
+        printPadded("", LCD_COLS);
         continue;
       }
       if (idx == commandsCount) {
         // Exit entry
         label[0] = '\0';
-        strncpy(label, "Exit", 20);
+        strncpy(label, "Exit", CMD_LABEL_STORAGE);
       } else {
-        strncpy(label, commands[idx].label, 19);
-        label[19] = '\0';
+        strncpy(label, commands[idx].label, CMD_LABEL_VISIBLE);
+        label[CMD_LABEL_VISIBLE] = '\0';
       }
-      // Render cursor and label (cursor at col 0, label at col 1 with width 19)
+      label[CMD_LABEL_STORAGE - 1] = '\0';
+      // Render cursor and label (cursor at col 0, label at col 1 with width CMD_LABEL_VISIBLE)
       lcd.print((idx == cursorIndex) ? ">" : " ");
-      printPadded(label, 19);
+      printPadded(label, CMD_LABEL_VISIBLE);
     }
   }
 }
@@ -353,11 +392,11 @@ static void updateHeartbeat(unsigned long now) {
   if (haveData) {
     unsigned long since = now - lastFrameMs;
     unsigned long staleThreshold = heartbeatIntervalMs * 2;
-    if (staleThreshold < 500) staleThreshold = 500;
+    if (staleThreshold < STALE_THRESHOLD_MIN_MS) staleThreshold = STALE_THRESHOLD_MIN_MS;
     if (staleThreshold > frameTimeoutMs) staleThreshold = frameTimeoutMs;
 
     if (since >= staleThreshold && since < frameTimeoutMs) {
-      if (now >= staleNextBlinkMs) {
+      if (staleNextBlinkMs == 0 || static_cast<long>(now - staleNextBlinkMs) >= 0) {
         triggerRedPulse(now, RED_STALE_PULSE_MS);
         staleNextBlinkMs = now + STALE_PERIOD_MS;
       }
@@ -370,7 +409,7 @@ static void updateHeartbeat(unsigned long now) {
   } else {
     staleNextBlinkMs = now + STALE_PERIOD_MS;
     if (redPulseUntilMs == 0) {
-      bool on = (waitAnim & 0x01) == 0;
+      bool on = (waitAnim % 2) == 0;
       digitalWrite(PIN_LED_RED, on ? HIGH : LOW);
     }
     if (greenPulseUntilMs == 0) {
@@ -395,7 +434,7 @@ void setup() {
     attachInterrupt(digitalPinToInterrupt(PIN_ENC_A), encoderISR, CHANGE);
     attachInterrupt(digitalPinToInterrupt(PIN_ENC_B), encoderISR, CHANGE);
     
-    lcd.begin(20, 4);
+    lcd.begin(LCD_COLS, LCD_ROWS);
     lcd.clear();
 
     // Initial message shown until first frame arrives
@@ -426,8 +465,8 @@ void loop() {
     if (movement != 0) {
         if (mode == UIMode::Telemetry) {
             int16_t maxScroll = 0;
-            if (buffer.size() > 4) {
-                maxScroll = static_cast<int16_t>(buffer.size() - 4);
+            if (buffer.size() > LCD_ROWS) {
+                maxScroll = static_cast<int16_t>(buffer.size() - LCD_ROWS);
             }
             scroll += movement;
             if (scroll < 0) scroll = 0;
@@ -440,11 +479,13 @@ void loop() {
             cursorIndex += (movement > 0 ? 1 : -1);
             if (cursorIndex < 0) cursorIndex = 0;
             if (cursorIndex >= total) cursorIndex = total - 1;
-            // Keep cursor visible within 4-row window
+            // Keep cursor visible within LCD_ROWS window
             if (cursorIndex < windowStart) windowStart = cursorIndex;
-            if (cursorIndex > windowStart + 3) windowStart = cursorIndex - 3;
+            int16_t windowHeight = static_cast<int16_t>(LCD_ROWS);
+            if (cursorIndex > windowStart + (windowHeight - 1)) windowStart = cursorIndex - (windowHeight - 1);
             if (windowStart < 0) windowStart = 0;
-            if (windowStart > total - 4) windowStart = total > 4 ? total - 4 : 0;
+            int16_t maxWindowStart = (total > windowHeight) ? (total - windowHeight) : 0;
+            if (windowStart > maxWindowStart) windowStart = maxWindowStart;
             render();
         }
     }
@@ -469,8 +510,8 @@ void loop() {
             render();
         }
     } else {
-        if ((now - lastAnimMs) >= 250) {
-            waitAnim = (waitAnim + 1) & 0x03;
+        if ((now - lastAnimMs) >= WAITING_ANIM_INTERVAL_MS) {
+            waitAnim = static_cast<uint8_t>((waitAnim + 1) % WAITING_ANIM_FRAMES);
             lastAnimMs = now;
             render();
         }

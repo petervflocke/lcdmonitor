@@ -25,4 +25,3 @@ def test_gpu_summary_uses_nvidia_smi_when_nvml_absent(monkeypatch) -> None:
     assert " 12%" in s
     assert " 25%" in s
     assert " 45C" in s
-

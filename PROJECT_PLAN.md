@@ -126,6 +126,7 @@
 
 - ✅ Hardened systemd deployment: default exec driver uses shell + `sudo -n`, service update target added, pip cache prepared, and documentation refreshed. Systemd unit keeps `NoNewPrivileges=no` to allow scoped sudo while other hardening flags stay in place.
 - ✅ Arduino resiliency: command view now tracks serial link loss, auto-returns to telemetry on recovery, and shows an animated waiting indicator during outages.
+- ✅ Arduino code quality: centralized LCD sizing constants, split frame commit handling into helpers, and tightened millis()-based watchdog logic.
 - ✅ Python serial resiliency: daemon retries opening the serial port with exponential backoff (5s → 30s capped) and state-aware logging to avoid systemd churn.
 - ☐ Add structured logging + rate-limited error handling in Python daemon (beyond the initial serial backoff).
 - ☐ Expand `/docs` with troubleshooting for hardware disconnects and sudo configuration examples.
