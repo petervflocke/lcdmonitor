@@ -69,7 +69,7 @@
 - [x] Python: add retry backoff for serial init failures so the service can start before hardware is connected.
 - [ ] Docs: add troubleshooting section covering serial loss recovery and sudo configuration examples.
 - [ ] Instrument daemon with metrics (OpenTelemetry optional) and document monitoring hooks.
-- [ ] Hardware verification pending: confirm LED pulses, command navigation, and frame handling after the refactor on connected hardware.
+- [x] Hardware verification pending: confirm LED pulses, command navigation, and frame handling after the refactor on connected hardware.
 
 ### Phase 8: Heartbeat Controller
 
