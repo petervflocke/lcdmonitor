@@ -147,7 +147,9 @@ def _reader(
                 try:
                     text = line.decode(errors="replace").rstrip()
                     print(f"[arduino] {text}")
-                    _handle_incoming_line(text, ser, cfg, log, allow_exec=allow_exec, exec_driver=exec_driver)
+                    _handle_incoming_line(
+                        text, ser, cfg, log, allow_exec=allow_exec, exec_driver=exec_driver
+                    )
                 except Exception:
                     print(f"[arduino bytes] {line!r}")
         except Exception as e:

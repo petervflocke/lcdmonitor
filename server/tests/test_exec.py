@@ -42,4 +42,3 @@ def test_select_exec_runs_when_allowed(monkeypatch, caplog) -> None:
     assert called["shell"] is True
     msgs = "\n".join(r.message for r in caplog.records)
     assert "started exec id=2 label=Echo" in msgs
-

@@ -64,10 +64,12 @@
 ### Phase 7: Hardening & Docs
 
 - [x] Arduino: recover from serial outages in any mode and show animated “Waiting for data …” indicator.
+- [x] Arduino: replace LCD sizing magic numbers, split `commitFrameIfAny` into helpers, and harden millis() comparisons (`arduino/src/main.cpp`).
 - [ ] Python: adopt structured logging (e.g., JSON adapters) for daemon events.
 - [x] Python: add retry backoff for serial init failures so the service can start before hardware is connected.
 - [ ] Docs: add troubleshooting section covering serial loss recovery and sudo configuration examples.
 - [ ] Instrument daemon with metrics (OpenTelemetry optional) and document monitoring hooks.
+- [ ] Hardware verification pending: confirm LED pulses, command navigation, and frame handling after the refactor on connected hardware.
 
 ### Phase 8: Heartbeat Controller
 

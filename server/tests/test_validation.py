@@ -45,4 +45,3 @@ def test_validate_rejects_empty_join() -> None:
     )
     with pytest.raises(ValueError):
         validate_config(cfg)
-
