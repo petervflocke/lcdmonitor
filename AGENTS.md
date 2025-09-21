@@ -1,105 +1,48 @@
-## Project goals
+## Overview
 
-- Develop a two-part system:
-  - **Element 1**: Arduino Nano with 20x4 LCD (HD44780 compatible) and rotary encoder for display and selection.
-  - **Element 2**: Linux server daemon in Python that reads system and GPU metrics, sends data to Element 1, and executes commands received from it.
-- Ship features incrementally in defined phases, keeping tests, CI, and docs green. Prioritize reliability, maintainability, and security.
+This document provides the high-level guardrails for Codex when collaborating on the lcdmonitor project. Detailed plans, backlog, and process notes live in:
 
-## Development phases (high-level)
+- `PROJECT_PLAN.md` – phase roadmap and milestones.
+- `TASKS.md` – current actionable work items.
+- `config.toml` – operational defaults (models, profiles, branch prefixes, validation suites).
+- `docs/codex-playbook.md` – project-specific working agreement.
+- `docs/codex-howto.md` – reusable guidance for future Codex-enabled projects.
 
-- **Element 1 (Arduino)**
-  1. Verify wiring by showing “Hello World” on LCD.
-  2. Add encoder support and memory buffer for scrollable LCD lines.
-  3. Receive and display serial data from server mockup.
-  4. Enable scroll through buffered data.
-  5. Add option selection and command send-back to server.
-- **Element 2 (Server Python)**
-  1. Write Python mockup sending strings via serial every 5s.
-  2. Implement config-driven sensor reader (CPU, GPU, temp, memory etc).
-  3. Define config file format (to be recommended by Codex).
-  4. Add command execution module triggered by Arduino input.
+## Goals & ownership
 
-  ## Languages and tooling
+- Build and maintain a two-part system: Arduino Nano UI and Python daemon, shipped incrementally with high reliability and security.
+- Peter is the human maintainer; Codex acts as implementation partner, reviewer, and documentation assistant.
+- For the full breakdown of phases and feature scope, see `PROJECT_PLAN.md` (source of truth to avoid duplication here).
 
-- **Element 1**: Arduino C++ with PlatformIO in VS Code.
-- **Element 2**: Python 3.12 in VS Code, uv/pip for deps.
-- Shared: Docker compose for integration testing.
-- Formatters and linters: Black, Ruff, mypy strict (Python). Arduino code: clang-format with project config.
-- Tests: pytest for server, Arduino unit tests with PlatformIO framework.
+## Tooling & environments
 
-## How to run locally
+- Arduino development runs through VS Code with the PlatformIO extension. The GUI shortcuts are the primary workflow; CLI equivalents exist in the Makefile but may be skipped when operating inside VS Code.
+- Python stack: Python 3.12, `uv`, pytest, Ruff, mypy (strict). Prefer Make targets (`make fmt`, `make lint`, etc.) over raw commands.
+- Hardware validation (uploading firmware, serial monitoring, end-to-end tests) must be performed manually on the target workstation. When Codex cannot execute these steps, it must flag them explicitly in status updates, and Peter confirms results or records outstanding tests.
 
-- Arduino: `pio run`, `pio upload`, `pio device monitor`
-- Python: `uv sync`, `pytest -q`
-- Integration: run server mockup, connect Arduino via USB, verify LCD output
-- Docker compose: `make up`, `make down`
+## Process expectations
 
-## Commands
+- Begin each session by reviewing `TASKS.md` and aligning with the entries in `config.toml` and the Codex playbook.
+- Use Codex profiles `readonly` (discovery/review) and `dev` (implementation) as described in `config.toml`. Mention profile switches in session notes when they affect command execution.
+- Keep `TASKS.md` updated as work progresses; defer to the playbook for intake format (`Goal / Constraints / Definition of done`).
+- Record any skipped or pending validations (especially hardware checks) and request manual confirmation.
 
-- `make fmt`, `make lint`, `make type`, `make test`, `make e2e`
-- `make ci` runs all of the above
-- Arduino tasks scripted in Makefile for reproducibility
-- Systemd helpers: `sudo make service-system-install …` for initial deployment and `sudo make service-system-update …` for redeployments (invokes pip via `sudo -H -u <service user>` to keep caches writable).
+## Version control & CI
 
-## Git and PR policy
+- Follow branch prefixes and PR policy defined in `config.toml` and `docs/codex-playbook.md` (`feature/`, `fix/`, `chore/`; always merge via PR with tests/docs updated).
+- CI requirements, logging standards, and security posture are detailed in the playbook and `PROJECT_PLAN.md`. Avoid repeating them here to reduce drift.
 
-- Branch naming: feature/, fix/, chore/
-- Commit style: feat|fix|docs|chore: short summary
-- Every PR must update tests and docs if behavior changes
-- Target: main is protected. Use PRs, no direct pushes
+## Escalations & guardrails
 
-## CI
+- Respect the protected paths listed in `config.toml` and seek explicit confirmation before destructive actions.
+- Do not introduce new dependencies, schema changes, or external calls without following the approval rules in the playbook.
+- When hardware testing cannot be automated, mark tasks as “hardware verification pending” in `TASKS.md` and the final handoff message.
 
-- GitHub Actions. Run on push and PR. Cache deps. Collect coverage. Block merge on red.
-- Required checks: lint, type, test, build, Arduino compile
+## Reference entry points
 
-## Security and secrets
+- `README.md` – onboarding, repository layout, setup commands.
+- `docs/wiring.md` – hardware connections.
+- `docs/adr/` – architectural decisions and protocol notes.
+- `docs/deployment-systemd.md` – server deployment guidance.
 
-- Never commit secrets. Use .env.local and CI secrets. Rotate if leaked.
-- Dependencies must pass vulnerability scan. For Python use pip-audit. For Arduino, pin library versions in PlatformIO.
-- Network access rules for Codex cloud. Off by default, enable only for package registries and pinned hosts.
-
-## Architecture guidance
-
-- Monorepo layout:
-  - `/arduino` for Element 1 code
-  - `/server` for Element 2 Python daemon
-  - `/infra`, `/docs`, `/scripts`
-- Service boundaries documented in `/docs/adr`. Every new service needs an ADR and Makefile targets.
-- Logging, metrics, tracing for server required. Prefer OpenTelemetry.
-
-## What Codex should do
-
-- Plan, then implement tasks from PROJECT\_PLAN.md.
-- Create or update Makefile targets, CI, tests, and docs.
-- Generate skeletons for config files and sample data flows.
-- Open focused PRs with a clear checklist, rationale, and risk notes.
-- Run linters, type checkers, and tests locally or in cloud before opening PRs.
-
-## What Codex must not do
-
-- No pushes to main.
-- No dependency upgrades without a PR that explains risk and changelog.
-- No schema changes without migration plan and rollback steps.
-- No external calls except those allowed under “Security and secrets”.
-
-## Repository context files
-
-- PROJECT\_PLAN.md defines phases and milestones.
-- TASKS.md holds the current checklist, Codex must keep it updated.
-- /docs/adr contains architecture decisions.
-- /docs/wiring.md documents Nano-to-LCD and encoder wiring.
-- /Makefile defines reproducible targets for Arduino and Python.
-- /arduino/src/main.cpp entrypoint sketch with Hello World.
-- /server/src/main.py entrypoint Python daemon.
-- /server/config.example.yaml sample configuration file.
-- /infra/systemd/lcdmonitor.system.service system-mode unit (shell exec driver default, `NoNewPrivileges=no` to allow scoped sudo commands).
-
-## Review checklist for PRs
-
-- Tests added or updated, coverage not down.
-- CI green. Lint and type checks clean.
-- Backward compatibility considered, migrations included.
-- Logs and errors helpful and actionable.
-- Docs updated where needed.
-- Arduino code builds and runs on target hardware.
+Treat this file as the lightweight entry point while keeping authoritative details in the dedicated documents called out above.

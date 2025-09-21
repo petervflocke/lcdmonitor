@@ -11,7 +11,7 @@ Two-part monitoring stack that shows Linux host metrics on an Arduino Nano with 
 
 ## Prerequisites
 - Python 3.12 with [uv](https://github.com/astral-sh/uv) (or `python3 -m venv` fallback).
-- PlatformIO CLI (`pio`) and serial access to the Arduino Nano.
+- PlatformIO CLI (`pio`) and serial access to the Arduino Nano. The Makefile auto-detects the VS Code extension’s bundled binary at `~/.platformio/penv/bin/pio`; override with `make PIO=/path/to/pio …` if installed elsewhere.
 - Optional GPU telemetry: `pynvml` or `nvidia-smi` available on the host.
 
 ## Setup
@@ -23,7 +23,7 @@ make type         # mypy (strict)
 make test         # pytest
 make arduino-build
 ```
-Hardware upload/monitor commands are available via `make arduino-upload` and `make arduino-monitor`.
+Hardware upload/monitor commands are available via `make arduino-upload` and `make arduino-monitor`. Day-to-day development typically uses the PlatformIO VS Code extension’s GUI shortcuts; the Make targets remain available for scripted runs. If the CLI is not on `PATH`, either rely on the auto-detected `~/.platformio/penv/bin/pio` or provide `PIO=/path/to/pio` when invoking `make`.
 
 ## Running the Python daemon
 - Dry run on a development box (no Arduino required):
@@ -94,5 +94,8 @@ sudo make service-system-update [SERVICE_USER=… SERVICE_GROUP=… INSTALL_ROOT
 - Wiring diagram and bill of materials: `docs/wiring.md`.
 - Systemd deployment deep dive: `docs/deployment-systemd.md`.
 - Architecture and decisions: `docs/adr/`.
+- Codex collaboration: `AGENTS.md`, `config.toml`, `docs/codex-playbook.md`, `docs/codex-howto.md`.
+
+Hardware validation requires the attached Arduino; if Codex cannot run those checks, pending tests are called out in task notes and handoff summaries for manual follow-up.
 
 Keep docs, tests, and configs in sync with behavior changes before opening a PR.

@@ -1,6 +1,12 @@
 # Minimal unified Makefile for the scaffold
 PY=uv run
-PIO=pio
+
+# Detect PlatformIO CLI. Falls back to the VS Code extension's bundled binary.
+DEFAULT_PIO := $(shell command -v pio 2>/dev/null)
+ifeq ($(DEFAULT_PIO),)
+DEFAULT_PIO := $(HOME)/.platformio/penv/bin/pio
+endif
+PIO ?= $(DEFAULT_PIO)
 
 .PHONY: setup setup-pip fmt fmt-check lint type pytest test ci e2e up down audit \
         arduino-build arduino-upload arduino-monitor arduino-clean arduino-test \

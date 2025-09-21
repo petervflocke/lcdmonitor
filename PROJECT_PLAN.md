@@ -132,14 +132,14 @@
 - ☐ Implement monitoring and metrics for Python daemon (OpenTelemetry optional).
 - ☐ Finalize ADRs for architecture choices.
 
-### Phase 8 (Optional): Heartbeat Controller (LED on D5)
+### Phase 8 (Optional): Heartbeat Controller (LEDs on D5 and D6)
 
 - Goal: Hardware link-health indicator with zero LCD changes.
-- Hardware: drive an external LED on `D5` via 220Ω to GND (preferred). Optionally switch to the built-in `D13` LED if wiring is not desired.
-- States & patterns (non-blocking):
-  - OK (fresh frames ≤ 2× interval): single short blink at 1 Hz (≈80 ms ON per second).
-  - Stale (> 2× to 10× interval): double-blink every 2 s (two ≈80 ms pulses, 150 ms apart).
-  - Lost (> 10× interval): LED OFF (optionally a very slow 0.2 Hz blink if desired later).
-- Implementation: small millis()-based scheduler/state machine; update `lastFrameMs` on both data and heartbeat frames; no `delay()`; no LCD changes.
-- Config: fixed thresholds initially; future optional tuning via server config if needed.
-- Verification: manual check of LED patterns while stopping/starting the server; keep Arduino resource use minimal.
+- Hardware: drive external LEDs via 220 Ω to GND (`D5` green for healthy, `D6` red for stale/lost/ack). Fall back to the on-board `D13` LED only if wiring is unavailable.
+- States & patterns (all millis()-driven, no blocking delays):
+  - **Healthy** – each telemetry (or metadata keepalive) frame triggers a visible ~120 ms pulse on the green LED. Red stays LOW.
+  - **Stale (>2× interval, <loss timeout)** – while data is late but not yet lost, emit a 50 ms red flash once per second so we can see the device is still alive. Green pulses resume immediately when telemetry arrives.
+  - **Lost (watchdog timeout, synced with LCD "Waiting for data…")** – reuse the spinner cadence (250 ms) to toggle the red LED while the LCD shows the waiting screen; green remains off.
+  - **Command acknowledgement** – whenever Arduino sends `SELECT <id>`, flash the red LED (~150 ms) regardless of the current state.
+- Implementation: keep thresholds in sync with the `META interval` (store the parsed interval, set watchdog/loss to 10×, stale threshold to 2×). Update `lastFrameMs` whenever telemetry or keepalive arrives. Manage LED pulses through a small state machine layered on the existing watchdog; never touch LCD code paths.
+- Verification: manually observe LED behavior while starting/stopping the server and issuing command selections. Confirm LEDs reset correctly when telemetry resumes.

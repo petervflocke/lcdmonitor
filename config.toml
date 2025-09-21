@@ -1,0 +1,86 @@
+# Codex collaboration defaults for the lcdmonitor project.
+# Tom's Obvious Minimal Language (TOML) is a human-readable config format using key/value tables.
+
+[agent]
+default_model = "gpt5-codex-medium"
+model_upsize = "gpt5-codex-large"
+auto_context_enabled = true
+preferred_profiles = ["readonly", "dev"]
+
+[profiles.readonly]
+purpose = "Planning, audits, reviews, or diagnosis without writing files."
+when_to_use = [
+  "First contact on a new task to gather context",
+  "Architecture discussions and retrospectives",
+  "Producing feedback on existing code without edits"
+]
+
+[profiles.dev]
+purpose = "Implementation work: editing files, running tests, building artifacts."
+when_to_use = [
+  "Making code or doc changes",
+  "Running Make targets, pytest, or PlatformIO commands",
+  "Preparing artifacts for a PR"
+]
+
+[workflow]
+default_branch = "main"
+branch_prefixes = ["feature/", "fix/", "chore/"]
+require_pr = true
+task_files = ["AGENTS.md", "PROJECT_PLAN.md", "TASKS.md"]
+shared_docs = ["docs/codex-playbook.md", "docs/codex-howto.md"]
+
+[workflow.preflight]
+description = "Run before opening a PR or handing off a task."
+commands = [
+  "make fmt",
+  "make lint",
+  "make type",
+  "make test"
+]
+
+[workflow.hardware]
+notes = "Hardware interactions (Arduino upload, serial monitor) run from the trusted VS Code workstation using the PlatformIO GUI; CLI Make targets remain available when needed."
+cli_detection = "Makefile auto-detects PlatformIO CLI, falling back to ~/.platformio/penv/bin/pio. Override via make PIO=/path/to/pio if necessary."
+commands = [
+  "make arduino-build",
+  "make arduino-upload",
+  "make arduino-monitor",
+  "make e2e PORT=/dev/ttyACM0"
+]
+
+[workflow.hardware_validation]
+expectation = "Codex cannot execute hardware tests. When firmware or serial behavior changes, flag pending manual verification in status updates and TASKS.md; Peter confirms results after running PlatformIO checks."
+
+[guardrails]
+# Directories where destructive changes require extra confirmation.
+protected_paths = [
+  "infra/systemd",
+  "docs/adr",
+  "server/config.example.yaml"
+]
+
+[communication]
+status_update_template = "Tests: {{tests}} | Docs: {{docs}} | Branch: {{branch}} | Next: {{next_steps}}"
+handoff_expectations = [
+  "Update TASKS.md with progress and remaining work",
+  "Summarize validations run (make commands, tests)",
+  "Call out any required approvals or follow-up"
+]
+
+[references]
+key_commands = [
+  "make ci",
+  "make service-user-install",
+  "sudo make service-system-install",
+  "sudo make service-system-update"
+]
+primary_docs = [
+  "README.md",
+  "docs/wiring.md",
+  "docs/deployment-systemd.md",
+  "docs/adr/0001-protocol.md"
+]
+
+[ignore]
+paths = [".pio", "__pycache__", ".venv", "venv", ".git", ".github"]

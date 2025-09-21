@@ -21,7 +21,7 @@
 | 15      | LED+ (A)    | Backlight anode                           | +5V through 220 Ω resistor               |
 | 16      | LED− (K)    | Backlight cathode                         | GND                                      |
 
-## LCD wiring               |
+## LCD wiring
 
 **Notes**
 - Mount the 10 kΩ potentiometer between +5 V and GND, with the wiper on VO, to adjust LCD contrast.
@@ -36,3 +36,11 @@
 | Button         | D4               | Add soft pull-up             |
 
 Add hardware RC debouncing!
+
+
+## Heartbeat LEDs Controller
+| LED Anode      | Arduino Nano Pin | Notes                        |
+|----------------|------------------|------------------------------|
+| Green          | D5               | Function: see phase 8        |
+| Red            | D6               | Function: see phase 8        |
+| Cathodes       | 220 Ω -> GND     | Common return path            |

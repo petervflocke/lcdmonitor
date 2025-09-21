@@ -68,3 +68,7 @@
 - [x] Python: add retry backoff for serial init failures so the service can start before hardware is connected.
 - [ ] Docs: add troubleshooting section covering serial loss recovery and sudo configuration examples.
 - [ ] Instrument daemon with metrics (OpenTelemetry optional) and document monitoring hooks.
+
+### Phase 8: Heartbeat Controller
+
+- [x] Drive D5 green/D6 red LEDs with non-blocking heartbeat (healthy pulse, stale flash, lost spinner, command ACK pulse) synced with telemetry META intervals.

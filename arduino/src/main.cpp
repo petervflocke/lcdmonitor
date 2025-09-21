@@ -10,9 +10,18 @@
 LiquidCrystal lcd(7, 8, 9, 10, 11, 12);
 
 // Rotary encoder pins
-constexpr uint8_t PIN_ENC_A = 2;  // D2
-constexpr uint8_t PIN_ENC_B = 3;  // D3
-constexpr uint8_t PIN_BTN = 4;    // D4
+constexpr uint8_t PIN_ENC_A = 2;   // D2
+constexpr uint8_t PIN_ENC_B = 3;   // D3
+constexpr uint8_t PIN_BTN = 4;     // D4
+
+// Heartbeat LEDs
+constexpr uint8_t PIN_LED_GREEN = 5;  // D5: healthy heartbeat
+constexpr uint8_t PIN_LED_RED = 6;    // D6: stale/lost/ack indicator
+
+static const unsigned long GREEN_PULSE_MS = 120;
+static const unsigned long RED_STALE_PULSE_MS = 50;
+static const unsigned long RED_ACK_PULSE_MS = 150;
+static const unsigned long STALE_PERIOD_MS = 1000;
 
 // --- Telemetry buffer/state ---
 ScrollBuffer buffer;
@@ -41,9 +50,42 @@ static const unsigned long FRAME_TIMEOUT_MAX_MS = 60000;
 static unsigned long frameTimeoutMs = FRAME_TIMEOUT_DEFAULT_MS;
 static unsigned long displayTimeoutMs = 0;
 static unsigned long lastFrameMs = 0;
+static unsigned long heartbeatIntervalMs = 3000;
 static bool haveData = false;
 static uint8_t waitAnim = 0;
 static unsigned long lastAnimMs = 0;
+
+// --- Heartbeat LED state ---
+static unsigned long greenPulseUntilMs = 0;
+static unsigned long redPulseUntilMs = 0;
+static unsigned long staleNextBlinkMs = 0;
+
+static void triggerGreenPulse(unsigned long now, unsigned long duration = GREEN_PULSE_MS) {
+  unsigned long expiry = now + duration;
+  if (expiry < now) {
+    expiry = now;  // overflow guard
+  }
+  if (expiry < greenPulseUntilMs) {
+    expiry = greenPulseUntilMs;
+  }
+  greenPulseUntilMs = expiry;
+  digitalWrite(PIN_LED_GREEN, HIGH);
+}
+
+static void triggerRedPulse(unsigned long now, unsigned long duration) {
+  unsigned long expiry = now + duration;
+  if (expiry < now) {
+    expiry = now;
+  }
+  if (expiry < redPulseUntilMs) {
+    expiry = redPulseUntilMs;
+  }
+  redPulseUntilMs = expiry;
+  digitalWrite(PIN_LED_RED, HIGH);
+  staleNextBlinkMs = now + STALE_PERIOD_MS;
+}
+
+static void updateHeartbeat(unsigned long now);
 
 // --- Button handling (debounced, long/double press) ---
 constexpr uint16_t BTN_DEBOUNCE_MS = 20;
@@ -127,7 +169,15 @@ static void commitFrameIfAny() {
       char* endPtr = nullptr;
       double sec = strtod(intervalPtr, &endPtr);
       if (sec > 0.0) {
-        unsigned long candidate = static_cast<unsigned long>(sec * 3000.0);  // 3x interval
+        unsigned long intervalMs = static_cast<unsigned long>(sec * 1000.0);
+        if (intervalMs < 250) intervalMs = 250;
+        heartbeatIntervalMs = intervalMs;
+        unsigned long candidate;
+        if (intervalMs > FRAME_TIMEOUT_MAX_MS / 10) {
+          candidate = FRAME_TIMEOUT_MAX_MS;
+        } else {
+          candidate = intervalMs * 10;  // 10x interval -> loss threshold
+        }
         if (candidate < FRAME_TIMEOUT_MIN_MS) candidate = FRAME_TIMEOUT_MIN_MS;
         if (candidate > FRAME_TIMEOUT_MAX_MS) candidate = FRAME_TIMEOUT_MAX_MS;
         frameTimeoutMs = candidate;
@@ -152,6 +202,11 @@ static void commitFrameIfAny() {
     lastFrameMs = millis();
     waitAnim = 0;
     lastAnimMs = lastFrameMs;
+    staleNextBlinkMs = lastFrameMs + STALE_PERIOD_MS;
+    triggerGreenPulse(lastFrameMs);
+    if (redPulseUntilMs == 0) {
+      digitalWrite(PIN_LED_RED, LOW);
+    }
     return;
   }
 
@@ -173,6 +228,13 @@ static void commitFrameIfAny() {
   lastFrameMs = millis();
   waitAnim = 0;
   lastAnimMs = lastFrameMs;
+  staleNextBlinkMs = lastFrameMs + STALE_PERIOD_MS;
+  if (!isCommands) {
+    triggerGreenPulse(lastFrameMs);
+  }
+  if (redPulseUntilMs == 0) {
+    digitalWrite(PIN_LED_RED, LOW);
+  }
 }
 
 static void render();
@@ -277,6 +339,46 @@ static void render() {
   }
 }
 
+static void updateHeartbeat(unsigned long now) {
+  if (greenPulseUntilMs != 0 && static_cast<long>(now - greenPulseUntilMs) >= 0) {
+    greenPulseUntilMs = 0;
+    digitalWrite(PIN_LED_GREEN, LOW);
+  }
+
+  if (redPulseUntilMs != 0 && static_cast<long>(now - redPulseUntilMs) >= 0) {
+    redPulseUntilMs = 0;
+    digitalWrite(PIN_LED_RED, LOW);
+  }
+
+  if (haveData) {
+    unsigned long since = now - lastFrameMs;
+    unsigned long staleThreshold = heartbeatIntervalMs * 2;
+    if (staleThreshold < 500) staleThreshold = 500;
+    if (staleThreshold > frameTimeoutMs) staleThreshold = frameTimeoutMs;
+
+    if (since >= staleThreshold && since < frameTimeoutMs) {
+      if (now >= staleNextBlinkMs) {
+        triggerRedPulse(now, RED_STALE_PULSE_MS);
+        staleNextBlinkMs = now + STALE_PERIOD_MS;
+      }
+    } else {
+      staleNextBlinkMs = now + STALE_PERIOD_MS;
+      if (redPulseUntilMs == 0) {
+        digitalWrite(PIN_LED_RED, LOW);
+      }
+    }
+  } else {
+    staleNextBlinkMs = now + STALE_PERIOD_MS;
+    if (redPulseUntilMs == 0) {
+      bool on = (waitAnim & 0x01) == 0;
+      digitalWrite(PIN_LED_RED, on ? HIGH : LOW);
+    }
+    if (greenPulseUntilMs == 0) {
+      digitalWrite(PIN_LED_GREEN, LOW);
+    }
+  }
+}
+
 void setup() {
     Serial.begin(115200);
     while (!Serial) {
@@ -285,7 +387,11 @@ void setup() {
     
     RotaryEncoder::init(PIN_ENC_A, PIN_ENC_B);
     pinMode(PIN_BTN, INPUT_PULLUP);
-    
+    pinMode(PIN_LED_GREEN, OUTPUT);
+    pinMode(PIN_LED_RED, OUTPUT);
+    digitalWrite(PIN_LED_GREEN, LOW);
+    digitalWrite(PIN_LED_RED, LOW);
+
     attachInterrupt(digitalPinToInterrupt(PIN_ENC_A), encoderISR, CHANGE);
     attachInterrupt(digitalPinToInterrupt(PIN_ENC_B), encoderISR, CHANGE);
     
@@ -307,6 +413,8 @@ void setup() {
     // Initialize watchdog state
     haveData = false;
     lastFrameMs = millis();
+    heartbeatIntervalMs = FRAME_TIMEOUT_DEFAULT_MS / 3;
+    staleNextBlinkMs = lastFrameMs + STALE_PERIOD_MS;
 }
 
 void loop() {
@@ -353,6 +461,11 @@ void loop() {
             buffer.push("Waiting for data...");
             waitAnim = 0;
             lastAnimMs = now;
+            greenPulseUntilMs = 0;
+            redPulseUntilMs = 0;
+            digitalWrite(PIN_LED_GREEN, LOW);
+            digitalWrite(PIN_LED_RED, LOW);
+            staleNextBlinkMs = now + STALE_PERIOD_MS;
             render();
         }
     } else {
@@ -362,6 +475,8 @@ void loop() {
             render();
         }
     }
+
+    updateHeartbeat(now);
 
     // Button handling: debounce + long/double press
     uint8_t btn = digitalRead(PIN_BTN);
@@ -408,6 +523,7 @@ void loop() {
                             } else if (cursorIndex >= 0 && cursorIndex < commandsCount) {
                                 Serial.print("SELECT ");
                                 Serial.println(commands[cursorIndex].id);
+                                triggerRedPulse(nowMs, RED_ACK_PULSE_MS);
                             }
                         }
                     }
