@@ -82,18 +82,20 @@ arduino-test:
 
 # Convenience targets for server daemon (Phase 5)
 .PHONY: server-run server-dry-run
+SERVER_ARGS ?=
+
 server-run:
-	cd server && $(PY) python -m src.main --config config.example.yaml
+	cd server && $(PY) python -m src.main --config config.example.yaml $(SERVER_ARGS)
 
 server-dry-run:
-	cd server && $(PY) python -m src.main --dry-run --once --config config.example.yaml
+	cd server && $(PY) python -m src.main --dry-run --once --config config.example.yaml $(SERVER_ARGS)
 
 # Run via pip venv created by setup-pip
 server-run-pip:
-	cd server && .venv/bin/python -m src.main --config config.example.yaml
+	cd server && .venv/bin/python -m src.main --config config.example.yaml $(SERVER_ARGS)
 
 server-dry-run-pip:
-	cd server && .venv/bin/python -m src.main --dry-run --once --config config.example.yaml
+	cd server && .venv/bin/python -m src.main --dry-run --once --config config.example.yaml $(SERVER_ARGS)
 
 # Systemd service install helpers (print instructions; actual install requires root)
 service-user-install:

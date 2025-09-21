@@ -31,6 +31,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Enable INFO-level logging (default is ERROR)",
     )
     p.add_argument(
+        "--log-level",
+        choices=["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"],
+        help="Override log level (overrides --verbose if set)",
+    )
+    p.add_argument(
         "--allow-exec",
         action="store_true",
         help="Allow executing configured commands (DANGEROUS). Off by default.",
@@ -146,12 +151,12 @@ def _reader(
             if line:
                 try:
                     text = line.decode(errors="replace").rstrip()
-                    print(f"[arduino] {text}")
+                    log.debug("arduino line: %s", text)
                     _handle_incoming_line(
                         text, ser, cfg, log, allow_exec=allow_exec, exec_driver=exec_driver
                     )
                 except Exception:
-                    print(f"[arduino bytes] {line!r}")
+                    log.debug("arduino raw bytes: %r", line)
         except Exception as e:
             logging.getLogger(__name__).error("reader error: %s", e)
             break
@@ -207,8 +212,11 @@ def _collect_lines(cfg: AppConfig) -> List[str]:
 
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
-    # Logging: minimal by default (ERROR). --verbose switches to INFO.
-    lvl = logging.INFO if args.verbose else logging.ERROR
+    # Logging: minimal by default (ERROR). --verbose switches to INFO unless --log-level overrides.
+    if args.log_level:
+        lvl = getattr(logging, args.log_level.upper(), logging.ERROR)
+    else:
+        lvl = logging.INFO if args.verbose else logging.ERROR
     logging.basicConfig(level=lvl, format="%(levelname)s:%(name)s:%(message)s", stream=sys.stderr)
     log = logging.getLogger(__name__)
     try:
@@ -271,8 +279,8 @@ def main(argv: list[str]) -> int:
             payload = Outbound(lines=lines).encode()
             ser.write(payload)
             ser.flush()
-            if args.verbose:
-                log.info("sent %d line(s)", len(lines))
+            if log.isEnabledFor(logging.INFO):
+                log.debug("sent %d line(s)", len(lines))
             if args.once:
                 return 0
             time.sleep(cfg.interval)

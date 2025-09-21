@@ -36,7 +36,16 @@ Hardware upload/monitor commands are available via `make arduino-upload` and `ma
   make server-run
   ```
   The config is driven by `server/config.example.yaml`; copy and edit it for your host. Enable command execution explicitly with `--allow-exec` and pick an execution driver (`shell` is the default, `systemd-user` and `systemd-system` remain available).
+  For logging, `--verbose` elevates output to INFO, while `--log-level=<LEVEL>` (CRITICAL/ERROR/WARNING/INFO/DEBUG) provides explicit control.
   Each telemetry frame starts with a metadata line (`META interval=<seconds>`) so the Arduino can scale its watchdog before rendering the remaining lines; the sketch hides the metadata from the LCD.
+
+  Pass extra CLI flags through the Make targets with `SERVER_ARGS`—handy for turning on debug logging or experimenting with other options:
+  ```bash
+  make server-run SERVER_ARGS="--log-level=DEBUG"
+  make server-dry-run SERVER_ARGS="--log-level=INFO --once"
+  make server-run SERVER_ARGS="--log-level=INFO --allow-exec --exec-driver systemd-user"
+  ```
+  The same variable works with `make server-run-pip` and `make server-dry-run-pip`.
 
 ## Systemd deployment
 Systemd units live in `infra/systemd/` and are documented in detail in `docs/deployment-systemd.md`. In short:
