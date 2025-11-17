@@ -10,18 +10,41 @@ def _pad3(n: int) -> str:
     return f"{n:>3d}"
 
 
+def _prefer_coretemp_package(temps: dict[str, Iterable[Any]]) -> Optional[int]:
+    """Try to pull the CPU package temperature from coretemp if present."""
+    for key, arr in temps.items():
+        if "coretemp" not in key:
+            continue
+        pkg = [e for e in arr if getattr(e, "label", None) == "Package id 0"]
+        if pkg:
+            val = _pick_temp_entry(pkg)
+            if val is not None:
+                return val
+        fallback_pkg = _pick_temp_entry(arr)
+        if fallback_pkg is not None:
+            return fallback_pkg
+    return None
+
+
 def cpu_summary() -> str:
-    t = psutil.sensors_temperatures(fahrenheit=False)
-    temp_val = None
-    for _k, arr in t.items():
-        if arr:
-            try:
-                temp_val = int(round(arr[0].current))
-            except Exception:
-                temp_val = None
-            break
-    mem = int(round(psutil.virtual_memory().percent))
-    cpu = int(round(psutil.cpu_percent(interval=None)))
+    temp_val: Optional[int] = None
+    try:
+        temps = psutil.sensors_temperatures(fahrenheit=False)
+    except Exception:
+        temps = {}
+    if temps:
+        # Prefer CPU package temp from coretemp/Package id 0, fall back to first sensor.
+        temp_val = _prefer_coretemp_package(temps)
+        if temp_val is None:
+            temp_val = _pick_temp_entry(next(iter(temps.values()), []))
+    try:
+        mem = int(round(psutil.virtual_memory().percent))
+    except Exception:
+        mem = 0
+    try:
+        cpu = int(round(psutil.cpu_percent(interval=None)))
+    except Exception:
+        cpu = 0
     parts = [f"{_pad3(cpu)}%", f"{_pad3(mem)}%"]
     if temp_val is not None:
         parts.append(f"{_pad3(temp_val)}C")

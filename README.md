@@ -99,6 +99,11 @@ sudo make service-system-update [SERVICE_USER=… SERVICE_GROUP=… INSTALL_ROOT
 - `make e2e PORT=/dev/ttyACM0` builds the sketch and runs the mock sender against connected hardware.
 - `uvx pip-audit` (via `make audit`) surfaces Python dependency issues.
 
+## Sensor sources
+- CPU summary: psutil for CPU%/RAM%, CPU package temp from the `coretemp` chip label `Package id 0` when available, otherwise the first exposed temperature sensor.
+- GPU summary: NVML (`pynvml`) first, falling back to `nvidia-smi` (util%, memory%, GPU temp).
+- Generic temps (`provider: temp` in config): psutil `sensors_temperatures()` with optional `chip`/`label` filters from the YAML config.
+
 ## Additional docs
 - Wiring diagram and bill of materials: `docs/wiring.md`.
 - Systemd deployment deep dive: `docs/deployment-systemd.md`.
